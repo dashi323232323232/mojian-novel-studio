@@ -1,0 +1,5223 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "大师小说工作台 本地 API",
+    "version": "v1",
+    "description": "大师小说工作台 1.0.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
+    "contact": {
+      "name": "大师小说工作台",
+      "url": "https://localhost/"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:45871",
+      "description": "本机 API（端口以 api-endpoint.json 为准）"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "系统",
+      "description": "版本、健康检查、OpenAPI 与文档"
+    },
+    {
+      "name": "项目",
+      "description": "项目创建、查询、重命名、删除"
+    },
+    {
+      "name": "阶段",
+      "description": "小说阶段管理"
+    },
+    {
+      "name": "章节",
+      "description": "章节创建、移动、排序、删除"
+    },
+    {
+      "name": "正文",
+      "description": "章节正文读写与双版本回溯"
+    },
+    {
+      "name": "大纲",
+      "description": "大纲节点、连线与画布布局"
+    },
+    {
+      "name": "关联",
+      "description": "大纲节点与章节的多对多关联"
+    },
+    {
+      "name": "伏笔",
+      "description": "伏笔追踪数据对象"
+    },
+    {
+      "name": "音频",
+      "description": "有声小说任务与结果"
+    },
+    {
+      "name": "设置",
+      "description": "界面与 API 设置"
+    }
+  ],
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "健康检查",
+        "tags": [
+          "系统"
+        ],
+        "description": "无需令牌。返回服务状态、版本与数据库状态，可用于连接测试。",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "服务正常",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "ok": true,
+                  "status": "running",
+                  "app": "大师小说工作台",
+                  "appVersion": "1.0.0",
+                  "apiVersion": "v1",
+                  "database": "ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/version": {
+      "get": {
+        "operationId": "getVersion",
+        "summary": "获取软件与接口版本",
+        "tags": [
+          "系统"
+        ],
+        "description": "无需令牌。返回应用版本、API 版本以及 OpenAPI / Agent 文档地址。",
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "版本信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "appVersion": "1.0.0",
+                  "apiVersion": "v1",
+                  "name": "大师小说工作台",
+                  "endpoints": {
+                    "openapi": "/api/v1/openapi.json",
+                    "agentGuide": "/api/v1/agent-guide"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "operationId": "getOpenApi",
+        "summary": "获取 OpenAPI 3.1 定义",
+        "tags": [
+          "系统"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 文档对象",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/agent-guide": {
+      "get": {
+        "operationId": "getAgentGuide",
+        "summary": "获取完整 Agent 接入文档（Markdown）",
+        "tags": [
+          "系统"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Markdown 文档",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "operationId": "getStats",
+        "summary": "获取全库统计",
+        "tags": [
+          "系统"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "项目/章节/节点/伏笔/音频数量与数据库大小",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "operationId": "search",
+        "summary": "搜索章节名称与正文",
+        "tags": [
+          "系统"
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "关键词",
+            "example": "色当"
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "限定项目"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "搜索结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "查询项目列表",
+        "tags": [
+          "项目"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "项目列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "projects": [
+                    {
+                      "id": "prj_2k9z8x4q1m",
+                      "name": "普法战争",
+                      "chapterCount": 12,
+                      "wordCount": 83452,
+                      "createdAt": "2026-10-27T00:00:00.000Z",
+                      "updatedAt": "2026-10-27T00:10:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProject",
+        "summary": "创建项目",
+        "tags": [
+          "项目"
+        ],
+        "description": "创建项目时自动生成「第一阶段」，可立即创建章节。项目名称必填。",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "项目信息",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectInput"
+              },
+              "example": {
+                "name": "普法战争",
+                "description": "1870 年的故事",
+                "genre": "历史小说"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "project": {
+                    "id": "prj_2k9z8x4q1m",
+                    "name": "普法战争",
+                    "chapterCount": 0,
+                    "wordCount": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "查询项目详情",
+        "tags": [
+          "项目"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            },
+            "example": "prj_2k9z8x4q1m"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "项目详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateProject",
+        "summary": "重命名或修改项目",
+        "tags": [
+          "项目"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectInput"
+              },
+              "example": {
+                "name": "普法战争（修订版）"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "修改后的项目",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProject",
+        "summary": "删除项目（高危）",
+        "tags": [
+          "项目"
+        ],
+        "description": "高危操作：需要用户在「Agent 接入」页面开启「允许高危操作」，且请求体必须 confirm=true；建议同时提供 confirmName=项目名称 二次校验。删除会级联移除阶段、章节、正文、大纲、伏笔、音频记录与音频文件，不可恢复。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConfirmInput"
+              },
+              "example": {
+                "confirm": true,
+                "confirmName": "普法战争"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "deleted": true,
+                  "id": "prj_2k9z8x4q1m"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
+      }
+    },
+    "/api/v1/projects/{projectId}/structure": {
+      "get": {
+        "operationId": "getProjectStructure",
+        "summary": "查询项目的阶段与章节树",
+        "tags": [
+          "项目"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "项目、阶段与章节",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "project": {
+                    "id": "prj_1",
+                    "name": "普法战争"
+                  },
+                  "stages": [
+                    {
+                      "id": "stg_1",
+                      "name": "第一阶段",
+                      "sortOrder": 0
+                    }
+                  ],
+                  "chapters": [
+                    {
+                      "id": "chp_1",
+                      "stageId": "stg_1",
+                      "name": "第一章 宣战",
+                      "sortOrder": 0
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/stages": {
+      "get": {
+        "operationId": "listStages",
+        "summary": "查询阶段列表",
+        "tags": [
+          "阶段"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "阶段列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createStage",
+        "summary": "创建阶段",
+        "tags": [
+          "阶段"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStageInput"
+              },
+              "example": {
+                "name": "第二阶段：围城"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "新阶段",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/stages/{stageId}": {
+      "patch": {
+        "operationId": "updateStage",
+        "summary": "重命名阶段",
+        "tags": [
+          "阶段"
+        ],
+        "parameters": [
+          {
+            "name": "stageId",
+            "in": "path",
+            "required": true,
+            "description": "阶段 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStageInput"
+              },
+              "example": {
+                "name": "第一阶段：战云密布"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "修改后的阶段",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteStage",
+        "summary": "删除阶段（高危）",
+        "tags": [
+          "阶段"
+        ],
+        "description": "必须 confirm=true，并明确章节处理方式：chapterAction=move（默认）把章节移动到 targetStageId（不传则移动到项目内其他阶段）；chapterAction=delete 会连同章节一起删除。阶段内仍有章节却没有其他阶段可接收时返回 STAGE_NOT_EMPTY。",
+        "parameters": [
+          {
+            "name": "stageId",
+            "in": "path",
+            "required": true,
+            "description": "阶段 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteStageInput"
+              },
+              "example": {
+                "confirm": true,
+                "chapterAction": "move",
+                "targetStageId": "stg_other"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "deleted": true,
+                  "id": "stg_1",
+                  "movedChapters": 3,
+                  "deletedChapters": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
+      }
+    },
+    "/api/v1/projects/{projectId}/stages/reorder": {
+      "post": {
+        "operationId": "reorderStages",
+        "summary": "调整阶段顺序",
+        "tags": [
+          "阶段"
+        ],
+        "description": "orderedIds 必须包含项目全部阶段且不重复。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderInput"
+              },
+              "example": {
+                "orderedIds": [
+                  "stg_2",
+                  "stg_1"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "排序后的阶段列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/chapters": {
+      "get": {
+        "operationId": "listChapters",
+        "summary": "查询章节列表",
+        "tags": [
+          "章节"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stageId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "按阶段过滤"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "章节列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createChapter",
+        "summary": "创建章节",
+        "tags": [
+          "章节"
+        ],
+        "description": "章节 ID 由服务端生成（稳定且不依赖名称）。stageId 省略时归入第一个阶段；content 可直接写入正文。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "章节信息",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChapterInput"
+              },
+              "example": {
+                "name": "第一章 宣战",
+                "stageId": "stg_1",
+                "content": "一八七〇年七月，巴黎的夏天闷热得反常。"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "新章节",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "chapter": {
+                    "id": "chp_2k9z8x4q1m",
+                    "name": "第一章 宣战",
+                    "stageId": "stg_1",
+                    "wordCount": 20
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/{chapterId}": {
+      "get": {
+        "operationId": "getChapter",
+        "summary": "查询章节详情",
+        "tags": [
+          "章节"
+        ],
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "章节详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateChapter",
+        "summary": "重命名章节或修改所属阶段",
+        "tags": [
+          "章节"
+        ],
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateChapterInput"
+              },
+              "example": {
+                "name": "第一章 战争前夜",
+                "stageId": "stg_2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "修改后的章节",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteChapter",
+        "summary": "删除章节（高危）",
+        "tags": [
+          "章节"
+        ],
+        "description": "必须 confirm=true，且用户已开启「允许高危操作」。章节正文、版本、关联与音频任务会一并删除。",
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConfirmInput"
+              },
+              "example": {
+                "confirm": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
+      }
+    },
+    "/api/v1/chapters/{chapterId}/move": {
+      "post": {
+        "operationId": "moveChapter",
+        "summary": "移动章节到指定阶段与位置",
+        "tags": [
+          "章节"
+        ],
+        "description": "beforeChapterId 指定插入到某章节之前；position 为全项目顺序索引；都省略时追加到末尾。",
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveChapterInput"
+              },
+              "example": {
+                "stageId": "stg_2",
+                "beforeChapterId": "chp_other"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "移动后的章节",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/chapters/reorder": {
+      "post": {
+        "operationId": "reorderChapters",
+        "summary": "整体调整章节顺序",
+        "tags": [
+          "章节"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderInput"
+              },
+              "example": {
+                "orderedIds": [
+                  "chp_2",
+                  "chp_1",
+                  "chp_3"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "排序后的章节列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/{chapterId}/content": {
+      "get": {
+        "operationId": "getChapterContent",
+        "summary": "读取章节正文",
+        "tags": [
+          "正文"
+        ],
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "正文与版本号",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "content": {
+                    "chapterId": "chp_1",
+                    "content": "一八七〇年七月，巴黎的夏天闷热得反常。",
+                    "revision": 3,
+                    "wordCount": 20,
+                    "updatedAt": "2026-10-27T00:10:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveChapterContent",
+        "summary": "保存章节正文",
+        "tags": [
+          "正文"
+        ],
+        "description": "保存采用事务写入；每次保存会把上一版归档为「上一个版本」，更早版本自动清理（只保留最新 + 上一版）。可传 baseRevision 做乐观并发控制：版本号不一致返回 409 CONFLICT。",
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveContentInput"
+              },
+              "example": {
+                "content": "一八七〇年七月，巴黎的夏天闷热得反常。",
+                "baseRevision": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "保存结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "save": {
+                    "chapterId": "chp_1",
+                    "revision": 4,
+                    "wordCount": 20,
+                    "savedAt": "2026-10-27T00:12:00.000Z",
+                    "unchanged": false,
+                    "versionId": "ver_2k9z8x4q1m"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/{chapterId}/versions": {
+      "get": {
+        "operationId": "listChapterVersions",
+        "summary": "查询当前版本与上一个版本",
+        "tags": [
+          "正文"
+        ],
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "版本摘要",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "current": {
+                    "revision": 4,
+                    "wordCount": 20,
+                    "updatedAt": "2026-10-27T00:12:00.000Z"
+                  },
+                  "previous": {
+                    "id": "ver_2k9z8x4q1m",
+                    "revision": 3,
+                    "wordCount": 18,
+                    "savedAt": "2026-10-27T00:10:00.000Z",
+                    "source": "manual"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/{chapterId}/versions/{versionId}": {
+      "get": {
+        "operationId": "getChapterVersion",
+        "summary": "读取上一个版本正文",
+        "tags": [
+          "正文"
+        ],
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "description": "版本 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "版本正文",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/{chapterId}/versions/{versionId}/restore": {
+      "post": {
+        "operationId": "restoreChapterVersion",
+        "summary": "回滚到上一个版本",
+        "tags": [
+          "正文"
+        ],
+        "description": "把指定历史版本写回正文；回滚前的内容会成为新的「上一个版本」，可再次回滚。",
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "description": "版本 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "回滚后的保存结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/outline": {
+      "get": {
+        "operationId": "getOutline",
+        "summary": "获取完整大纲快照",
+        "tags": [
+          "大纲"
+        ],
+        "description": "一次性返回节点、连线与节点-章节关联，适合 Agent 读取全貌。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "大纲快照",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "nodes": [
+                    {
+                      "id": "nod_1",
+                      "type": "event",
+                      "title": "色当战役",
+                      "x": 320,
+                      "y": 180
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "id": "edg_1",
+                      "sourceId": "nod_1",
+                      "targetId": "nod_2",
+                      "relation": "causal"
+                    }
+                  ],
+                  "links": [
+                    {
+                      "nodeId": "nod_1",
+                      "chapterId": "chp_1",
+                      "createdAt": "2026-10-27T00:00:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/outline/nodes": {
+      "get": {
+        "operationId": "listOutlineNodes",
+        "summary": "查询大纲节点",
+        "tags": [
+          "大纲"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "stage",
+                "event",
+                "character",
+                "foreshadow",
+                "note"
+              ]
+            },
+            "description": "按类型过滤"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "节点列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createOutlineNode",
+        "summary": "创建大纲节点",
+        "tags": [
+          "大纲"
+        ],
+        "description": "节点位置、尺寸、类型、内容都会持久化。data 可携带类型专属字段。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "节点信息",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOutlineNodeInput"
+              },
+              "example": {
+                "type": "event",
+                "title": "色当战役",
+                "description": "法军主力被围，拿破仑三世投降。",
+                "x": 320,
+                "y": 180,
+                "data": {
+                  "time": "1870-09-01",
+                  "location": "色当"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "新节点",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "node": {
+                    "id": "nod_2k9z8x4q1m",
+                    "type": "event",
+                    "title": "色当战役",
+                    "x": 320,
+                    "y": 180
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/outline/nodes/{nodeId}": {
+      "get": {
+        "operationId": "getOutlineNode",
+        "summary": "查询单个节点",
+        "tags": [
+          "大纲"
+        ],
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "description": "节点 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "节点详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateOutlineNode",
+        "summary": "修改节点",
+        "tags": [
+          "大纲"
+        ],
+        "description": "支持修改名称、类型、描述、坐标、尺寸、颜色与扩展 data。",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "description": "节点 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOutlineNodeInput"
+              },
+              "example": {
+                "title": "色当战役与帝国覆灭",
+                "x": 360,
+                "y": 200,
+                "data": {
+                  "location": "色当",
+                  "notes": "需要与第二章呼应"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "修改后的节点",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteOutlineNode",
+        "summary": "删除节点（需确认）",
+        "tags": [
+          "大纲"
+        ],
+        "description": "必须 confirm=true；相关连线与章节关联会一并删除。",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "description": "节点 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConfirmInput"
+              },
+              "example": {
+                "confirm": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
+      }
+    },
+    "/api/v1/outline/nodes/{nodeId}/duplicate": {
+      "post": {
+        "operationId": "duplicateOutlineNode",
+        "summary": "复制节点",
+        "tags": [
+          "大纲"
+        ],
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "description": "节点 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "副本节点",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/outline/nodes/positions": {
+      "post": {
+        "operationId": "updateNodePositions",
+        "summary": "批量保存节点位置",
+        "tags": [
+          "大纲"
+        ],
+        "description": "拖动结束后批量提交，减少写入次数。只更新属于该项目的节点。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodePositionsInput"
+              },
+              "example": {
+                "positions": [
+                  {
+                    "id": "nod_1",
+                    "x": 100,
+                    "y": 120
+                  },
+                  {
+                    "id": "nod_2",
+                    "x": 420,
+                    "y": 120
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新数量",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/outline/edges": {
+      "get": {
+        "operationId": "listOutlineEdges",
+        "summary": "查询连线",
+        "tags": [
+          "大纲"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "连线列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createOutlineEdge",
+        "summary": "创建连线",
+        "tags": [
+          "大纲"
+        ],
+        "description": "relation 表达明确关系：sequence/causal/parallel/setup/payoff/relation/custom。相同两端 + 相同关系不会重复创建。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOutlineEdgeInput"
+              },
+              "example": {
+                "sourceId": "nod_1",
+                "targetId": "nod_2",
+                "relation": "causal",
+                "label": "导致",
+                "description": "色当战败导致第二帝国崩溃。"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "新连线",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/outline/edges/{edgeId}": {
+      "patch": {
+        "operationId": "updateOutlineEdge",
+        "summary": "修改连线",
+        "tags": [
+          "大纲"
+        ],
+        "parameters": [
+          {
+            "name": "edgeId",
+            "in": "path",
+            "required": true,
+            "description": "连线 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOutlineEdgeInput"
+              },
+              "example": {
+                "relation": "sequence",
+                "label": "之后"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "修改后的连线",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteOutlineEdge",
+        "summary": "删除连线",
+        "tags": [
+          "大纲"
+        ],
+        "parameters": [
+          {
+            "name": "edgeId",
+            "in": "path",
+            "required": true,
+            "description": "连线 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/links": {
+      "get": {
+        "operationId": "listNodeChapterLinks",
+        "summary": "查询章节与节点关联",
+        "tags": [
+          "关联"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nodeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "按节点过滤"
+          },
+          {
+            "name": "chapterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "按章节过滤"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "关联列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNodeChapterLink",
+        "summary": "创建章节与节点关联",
+        "tags": [
+          "关联"
+        ],
+        "description": "多对多：同一节点可关联多个章节，同一章节可关联多个节点。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLinkInput"
+              },
+              "example": {
+                "nodeId": "nod_1",
+                "chapterId": "chp_1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "新关联",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteNodeChapterLink",
+        "summary": "删除章节与节点关联",
+        "tags": [
+          "关联"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nodeId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "节点 ID"
+          },
+          {
+            "name": "chapterId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "章节 ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/outline/nodes/{nodeId}/chapters": {
+      "get": {
+        "operationId": "getNodeChapters",
+        "summary": "查询节点关联的章节",
+        "tags": [
+          "关联"
+        ],
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "description": "节点 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "关联章节（含编号、名称、所属阶段、字数）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/chapters/{chapterId}/nodes": {
+      "get": {
+        "operationId": "getChapterNodes",
+        "summary": "查询章节关联的大纲节点",
+        "tags": [
+          "关联"
+        ],
+        "parameters": [
+          {
+            "name": "chapterId",
+            "in": "path",
+            "required": true,
+            "description": "章节 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "关联节点列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/foreshadows": {
+      "get": {
+        "operationId": "listForeshadows",
+        "summary": "查询伏笔",
+        "tags": [
+          "伏笔"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "planned",
+                "planted",
+                "developing",
+                "resolved",
+                "abandoned"
+              ]
+            },
+            "description": "按状态过滤"
+          },
+          {
+            "name": "chapterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "按关联章节过滤"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "伏笔列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createForeshadow",
+        "summary": "创建伏笔",
+        "tags": [
+          "伏笔"
+        ],
+        "description": "伏笔是独立数据对象，支持埋设章节、预计回收章节/阶段、关联人物节点、关联大纲节点、多章节关联。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForeshadowInput"
+              },
+              "example": {
+                "name": "染血的军旗",
+                "description": "第一章出现的军旗，将在最后决战中再次出现。",
+                "status": "planted",
+                "plantedChapterId": "chp_1",
+                "plannedResolveChapterId": "chp_12",
+                "chapterIds": [
+                  "chp_1",
+                  "chp_12"
+                ],
+                "notes": "需要在第十章补一个特写。"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "新伏笔",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/foreshadows/{foreshadowId}": {
+      "get": {
+        "operationId": "getForeshadow",
+        "summary": "查询伏笔详情",
+        "tags": [
+          "伏笔"
+        ],
+        "parameters": [
+          {
+            "name": "foreshadowId",
+            "in": "path",
+            "required": true,
+            "description": "伏笔 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "伏笔详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateForeshadow",
+        "summary": "修改伏笔",
+        "tags": [
+          "伏笔"
+        ],
+        "parameters": [
+          {
+            "name": "foreshadowId",
+            "in": "path",
+            "required": true,
+            "description": "伏笔 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForeshadowPatch"
+              },
+              "example": {
+                "status": "resolved",
+                "notes": "已在第十二章回收。"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "修改后的伏笔",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteForeshadow",
+        "summary": "删除伏笔（需确认）",
+        "tags": [
+          "伏笔"
+        ],
+        "parameters": [
+          {
+            "name": "foreshadowId",
+            "in": "path",
+            "required": true,
+            "description": "伏笔 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConfirmInput"
+              },
+              "example": {
+                "confirm": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
+      }
+    },
+    "/api/v1/foreshadows/{foreshadowId}/attach-outline": {
+      "post": {
+        "operationId": "attachForeshadowToOutline",
+        "summary": "把伏笔同步为大纲节点",
+        "tags": [
+          "伏笔"
+        ],
+        "parameters": [
+          {
+            "name": "foreshadowId",
+            "in": "path",
+            "required": true,
+            "description": "伏笔 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "生成的节点 ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/audio/voices": {
+      "get": {
+        "operationId": "listVoices",
+        "summary": "查询可用声音",
+        "tags": [
+          "音频"
+        ],
+        "description": "返回各语音服务商是否已配置及可用音色。未配置的服务商返回 configured=false。",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sapi",
+                "openai"
+              ]
+            },
+            "description": "只查询指定服务商"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "声音列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "providers": [
+                    {
+                      "provider": "sapi",
+                      "label": "Windows 本地语音（SAPI）",
+                      "configured": true,
+                      "voices": [
+                        {
+                          "id": "Microsoft Huihui Desktop",
+                          "name": "Microsoft Huihui Desktop",
+                          "locale": "zh-CN"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/audio/jobs": {
+      "get": {
+        "operationId": "listAudioJobs",
+        "summary": "查询音频任务",
+        "tags": [
+          "音频"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chapterId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "按章节过滤"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "任务列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAudioJob",
+        "summary": "创建音频生成任务",
+        "tags": [
+          "音频"
+        ],
+        "description": "使用章节已保存的正文作为输入，无需重新粘贴。未配置语音服务时返回 400 PROVIDER_NOT_CONFIGURED；正文为空返回 400 VALIDATION_ERROR。任务异步执行，返回后需轮询查询状态。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAudioJobInput"
+              },
+              "example": {
+                "chapterId": "chp_1",
+                "voiceId": "Microsoft Huihui Desktop",
+                "provider": "sapi",
+                "rate": 0,
+                "volume": 100
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "任务已创建（status=queued）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "job": {
+                    "id": "aud_2k9z8x4q1m",
+                    "status": "queued",
+                    "progress": 0,
+                    "chapterId": "chp_1",
+                    "provider": "sapi"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/audio/preview": {
+      "post": {
+        "operationId": "previewVoice",
+        "summary": "试听声音样本",
+        "tags": [
+          "音频"
+        ],
+        "description": "使用一句短文本真实合成试听样本，不创建章节任务、不写入任务列表。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewVoiceInput"
+              },
+              "example": {
+                "voiceId": "Microsoft Huihui Desktop",
+                "provider": "sapi",
+                "rate": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "试听音频地址",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "preview": {
+                    "mediaUrl": "novel-media://audio/prj_1/preview-123.wav",
+                    "durationMs": 4200,
+                    "provider": "sapi",
+                    "voiceId": "Microsoft Huihui Desktop"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/audio/jobs/{jobId}": {
+      "get": {
+        "operationId": "getAudioJob",
+        "summary": "查询音频任务状态与结果",
+        "tags": [
+          "音频"
+        ],
+        "description": "status：queued/running/succeeded/failed/canceled；成功后返回 filePath、mediaUrl、durationMs、size。",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "description": "任务 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "任务详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAudioJob",
+        "summary": "删除音频任务及文件（需确认）",
+        "tags": [
+          "音频"
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "description": "任务 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
+      }
+    },
+    "/api/v1/audio/jobs/{jobId}/cancel": {
+      "post": {
+        "operationId": "cancelAudioJob",
+        "summary": "取消音频任务",
+        "tags": [
+          "音频"
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "description": "任务 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "取消后的任务",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "summary": "读取界面与 API 设置（不含密钥）",
+        "tags": [
+          "设置"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "设置快照",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateSettings",
+        "summary": "更新界面设置",
+        "tags": [
+          "设置"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsInput"
+              },
+              "example": {
+                "lastProjectId": "prj_1",
+                "editor": {
+                  "fontSize": 18,
+                  "autoSave": true
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新后的设置",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "在「Agent 接入」页面复制访问令牌，请求头 Authorization: Bearer <token>。"
+      }
+    },
+    "schemas": {
+      "Project": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "prj_2k9z8x4q1m"
+          },
+          "name": {
+            "type": "string",
+            "example": "普法战争"
+          },
+          "description": {
+            "type": "string",
+            "example": "一部以 1870 年普法战争为背景的长篇小说。"
+          },
+          "genre": {
+            "type": "string",
+            "example": "历史小说"
+          },
+          "coverColor": {
+            "type": "string",
+            "example": "#5b6cff"
+          },
+          "chapterCount": {
+            "type": "integer",
+            "example": 12
+          },
+          "wordCount": {
+            "type": "integer",
+            "example": 83452
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastOpenedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "Stage": {
+        "type": "object",
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "sortOrder"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "stg_2k9z8x4q1m"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "第一阶段：战云密布"
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 0
+          },
+          "chapterCount": {
+            "type": "integer",
+            "example": 3
+          },
+          "wordCount": {
+            "type": "integer",
+            "example": 12000
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Chapter": {
+        "type": "object",
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "sortOrder"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "chp_2k9z8x4q1m"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "stageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "example": "第一章 宣战"
+          },
+          "sortOrder": {
+            "type": "number",
+            "example": 0
+          },
+          "wordCount": {
+            "type": "integer",
+            "example": 3200
+          },
+          "contentUpdatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ChapterContent": {
+        "type": "object",
+        "required": [
+          "chapterId",
+          "content",
+          "revision",
+          "wordCount"
+        ],
+        "properties": {
+          "chapterId": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "example": "一八七〇年七月，巴黎的夏天闷热得反常。"
+          },
+          "revision": {
+            "type": "integer",
+            "example": 7
+          },
+          "wordCount": {
+            "type": "integer",
+            "example": 3200
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SaveResult": {
+        "type": "object",
+        "properties": {
+          "chapterId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "example": 8
+          },
+          "wordCount": {
+            "type": "integer",
+            "example": 3240
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "unchanged": {
+            "type": "boolean",
+            "description": "内容与当前版本相同，未产生新版本"
+          },
+          "versionId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "本次保存归档的上一版本 ID"
+          }
+        }
+      },
+      "OutlineNode": {
+        "type": "object",
+        "required": [
+          "id",
+          "projectId",
+          "type",
+          "title",
+          "x",
+          "y"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "nod_2k9z8x4q1m"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "event",
+              "character",
+              "foreshadow",
+              "note"
+            ],
+            "example": "event"
+          },
+          "title": {
+            "type": "string",
+            "example": "色当战役"
+          },
+          "description": {
+            "type": "string",
+            "example": "法军主力被围，拿破仑三世投降。"
+          },
+          "x": {
+            "type": "number",
+            "example": 320
+          },
+          "y": {
+            "type": "number",
+            "example": 180
+          },
+          "width": {
+            "type": "number",
+            "example": 230
+          },
+          "height": {
+            "type": "number",
+            "example": 116
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "按节点类型扩展的字段：role/age/appearance/personality/time/location/goal/foreshadowId/notes 等",
+            "example": {
+              "time": "1870-09-01",
+              "location": "色当"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OutlineEdge": {
+        "type": "object",
+        "required": [
+          "id",
+          "projectId",
+          "sourceId",
+          "targetId",
+          "relation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "edg_2k9z8x4q1m"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "sequence",
+              "causal",
+              "parallel",
+              "setup",
+              "payoff",
+              "relation",
+              "custom"
+            ],
+            "example": "causal"
+          },
+          "label": {
+            "type": "string",
+            "example": "导致"
+          },
+          "description": {
+            "type": "string",
+            "example": "色当战败直接导致第二帝国崩溃。"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Foreshadow": {
+        "type": "object",
+        "required": [
+          "id",
+          "projectId",
+          "name",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "fsd_2k9z8x4q1m"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "染血的军旗"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "planted",
+              "developing",
+              "resolved",
+              "abandoned"
+            ],
+            "example": "planted"
+          },
+          "plantedChapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plannedResolveChapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plannedResolveStageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nodeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "关联的大纲节点"
+          },
+          "characterNodeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "chapterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "关联章节（可多个）"
+          },
+          "chapterRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "chapterId": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "planted",
+                    "related",
+                    "resolved"
+                  ]
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AudioJob": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "aud_2k9z8x4q1m"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "chapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chapterName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "canceled"
+            ]
+          },
+          "progress": {
+            "type": "number",
+            "example": 0.65
+          },
+          "message": {
+            "type": "string",
+            "example": "正在合成语音"
+          },
+          "provider": {
+            "type": "string",
+            "example": "sapi"
+          },
+          "voiceId": {
+            "type": "string",
+            "example": "Microsoft Huihui Desktop"
+          },
+          "voiceName": {
+            "type": "string"
+          },
+          "rate": {
+            "type": "integer",
+            "example": 0
+          },
+          "volume": {
+            "type": "integer",
+            "example": 100
+          },
+          "format": {
+            "type": "string",
+            "example": "wav"
+          },
+          "fileName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filePath": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "音频在本机的绝对路径"
+          },
+          "mediaUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "可在应用内播放的地址"
+          },
+          "durationMs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "example": 125000
+          },
+          "charCount": {
+            "type": "integer",
+            "example": 3200
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "UNAUTHORIZED",
+                  "FORBIDDEN",
+                  "NOT_FOUND",
+                  "CONFLICT",
+                  "CONFIRMATION_REQUIRED",
+                  "STAGE_NOT_EMPTY",
+                  "RATE_LIMITED",
+                  "PROVIDER_NOT_CONFIGURED",
+                  "PROVIDER_ERROR",
+                  "UNSUPPORTED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "example": "章节名称不能为空"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      },
+      "CreateProjectInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "普法战争"
+          },
+          "description": {
+            "type": "string"
+          },
+          "genre": {
+            "type": "string"
+          },
+          "coverColor": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          }
+        }
+      },
+      "UpdateProjectInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string"
+          },
+          "genre": {
+            "type": "string"
+          },
+          "coverColor": {
+            "type": "string"
+          }
+        }
+      },
+      "DeleteConfirmInput": {
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "必须显式为 true"
+          },
+          "confirmName": {
+            "type": "string",
+            "description": "项目删除时的二次校验：填写项目名称"
+          }
+        }
+      },
+      "DeleteStageInput": {
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "chapterAction": {
+            "type": "string",
+            "enum": [
+              "move",
+              "delete"
+            ],
+            "default": "move"
+          },
+          "targetStageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "chapterAction=move 时的目标阶段"
+          }
+        }
+      },
+      "ReorderInput": {
+        "type": "object",
+        "required": [
+          "orderedIds"
+        ],
+        "properties": {
+          "orderedIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "CreateStageInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "第二阶段"
+          }
+        }
+      },
+      "UpdateStageInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          }
+        }
+      },
+      "CreateChapterInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "example": "第一章 宣战"
+          },
+          "stageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "description": "可选：创建时直接写入正文"
+          }
+        }
+      },
+      "UpdateChapterInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "stageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sortOrder": {
+            "type": "number"
+          }
+        }
+      },
+      "MoveChapterInput": {
+        "type": "object",
+        "properties": {
+          "stageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "beforeChapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SaveContentInput": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 33554432,
+            "description": "UTF-8 正文，最大 32MB"
+          },
+          "baseRevision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "可选：乐观锁版本号"
+          }
+        }
+      },
+      "CreateOutlineNodeInput": {
+        "type": "object",
+        "required": [
+          "type",
+          "title"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "event",
+              "character",
+              "foreshadow",
+              "note"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "UpdateOutlineNodeInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "stage",
+              "event",
+              "character",
+              "foreshadow",
+              "note"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "NodePositionsInput": {
+        "type": "object",
+        "required": [
+          "positions"
+        ],
+        "properties": {
+          "positions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "x",
+                "y"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CreateOutlineEdgeInput": {
+        "type": "object",
+        "required": [
+          "sourceId",
+          "targetId"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "sequence",
+              "causal",
+              "parallel",
+              "setup",
+              "payoff",
+              "relation",
+              "custom"
+            ],
+            "default": "sequence"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "UpdateOutlineEdgeInput": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          },
+          "targetId": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "sequence",
+              "causal",
+              "parallel",
+              "setup",
+              "payoff",
+              "relation",
+              "custom"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateLinkInput": {
+        "type": "object",
+        "required": [
+          "nodeId",
+          "chapterId"
+        ],
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "chapterId": {
+            "type": "string"
+          }
+        }
+      },
+      "ForeshadowInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "planted",
+              "developing",
+              "resolved",
+              "abandoned"
+            ]
+          },
+          "plantedChapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plannedResolveChapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plannedResolveStageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "characterNodeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "chapterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "chapterRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "chapterId"
+              ],
+              "properties": {
+                "chapterId": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "planted",
+                    "related",
+                    "resolved"
+                  ]
+                }
+              }
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ForeshadowPatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "planted",
+              "developing",
+              "resolved",
+              "abandoned"
+            ]
+          },
+          "plantedChapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plannedResolveChapterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plannedResolveStageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "characterNodeIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "chapterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "chapterRefs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAudioJobInput": {
+        "type": "object",
+        "required": [
+          "chapterId",
+          "voiceId"
+        ],
+        "properties": {
+          "chapterId": {
+            "type": "string"
+          },
+          "voiceId": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "sapi",
+              "openai"
+            ],
+            "default": "sapi"
+          },
+          "rate": {
+            "type": "integer",
+            "minimum": -10,
+            "maximum": 10,
+            "default": 0
+          },
+          "volume": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 100
+          }
+        }
+      },
+      "PreviewVoiceInput": {
+        "type": "object",
+        "required": [
+          "voiceId"
+        ],
+        "properties": {
+          "voiceId": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "sapi",
+              "openai"
+            ],
+            "default": "sapi"
+          },
+          "rate": {
+            "type": "integer",
+            "minimum": -10,
+            "maximum": 10
+          },
+          "volume": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "可选试听文本，默认内置一句样本"
+          }
+        }
+      },
+      "UpdateSettingsInput": {
+        "type": "object",
+        "properties": {
+          "lastProjectId": {
+            "type": "string"
+          },
+          "editor": {
+            "type": "object",
+            "properties": {
+              "fontSize": {
+                "type": "number"
+              },
+              "lineHeight": {
+                "type": "number"
+              },
+              "fontFamily": {
+                "type": "string",
+                "enum": [
+                  "serif",
+                  "sans"
+                ]
+              },
+              "showWordCount": {
+                "type": "boolean"
+              },
+              "autoSave": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "参数校验失败（400）",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "章节名称不能为空"
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "未授权（401）：缺少或错误的 Bearer 令牌",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "UNAUTHORIZED",
+                "message": "缺少或错误的访问令牌。"
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "禁止访问（403）：跨站来源或高危操作未开启",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "FORBIDDEN",
+                "message": "高危操作未启用。"
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在（404）",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "NOT_FOUND",
+                "message": "章节不存在：chp_xxx"
+              }
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "数据冲突（409）：版本号不一致或需要确认",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "CONFLICT",
+                "message": "章节已被其他操作修改，请重新加载后再保存。"
+              }
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "服务器内部错误（500）",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "未知错误"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-dashi-api-version": "v1",
+  "x-dashi-app-version": "1.0.0",
+  "x-dashi-discovery": "用户数据目录/api-endpoint.json 中的 baseUrl 字段"
+}
