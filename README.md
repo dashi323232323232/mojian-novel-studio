@@ -284,6 +284,7 @@ npm run package        # 打包 Windows 应用
 | 语音适配器（`tests/unit/tts.test.ts`） | 3 / 3 通过（真实合成 WAV） |
 | HTTP API（`tests/api/api.test.ts`） | 22 / 22 通过 |
 | 桌面冒烟（`tests/e2e/smoke.mjs`） | 15 / 15 通过 |
+| 关窗保护（`tests/e2e/close-guard.mjs`） | 3 / 3 通过 |
 | 联动工作区（`tests/e2e/link-and-guard.mjs`） | 11 / 11 通过 |
 | 高级场景（`tests/e2e/advanced.mjs`） | 20 / 20 通过 |
 | 综合验收（`tests/e2e/final.mjs`） | 9 / 9 通过 |
