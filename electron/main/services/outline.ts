@@ -21,6 +21,9 @@ interface NodeRow {
   type: NodeType;
   title: string;
   description: string;
+  notes: string;
+  stage_id: string | null;
+  chapter_id: string | null;
   x: number;
   y: number;
   width: number;
@@ -46,6 +49,7 @@ interface EdgeRow {
 const DEFAULT_SIZE: Record<NodeType, { width: number; height: number }> = {
   stage: { width: 250, height: 128 },
   event: { width: 230, height: 116 },
+  chapter: { width: 230, height: 116 },
   character: { width: 220, height: 120 },
   foreshadow: { width: 220, height: 116 },
   note: { width: 210, height: 108 },
@@ -71,6 +75,7 @@ function mapNode(row: NodeRow): OutlineNode {
     height: Number(row.height),
     color: row.color,
     data,
+    notes: row.notes ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -105,7 +110,18 @@ function assertRelation(value: unknown): EdgeRelation {
 }
 
 export class OutlineService {
-  constructor(private ctx: ServiceContext) {}
+  constructor(
+    private ctx: ServiceContext,
+    private structureSync: {
+      syncBoundEntity: (
+        nodeType: string,
+        stageId: string | null,
+        chapterId: string | null,
+        title: string,
+        description: string,
+      ) => void;
+    },
+  ) {}
 
   private assertProject(projectId: string): void {
     const row = this.ctx.db.get<{ id: string }>('SELECT id FROM projects WHERE id = ?', projectId);
@@ -165,15 +181,48 @@ export class OutlineService {
     const width = Math.max(140, Math.min(1200, asNumber(input.width, size.width)));
     const height = Math.max(70, Math.min(900, asNumber(input.height, size.height)));
     const data = isPlainObject(input.data) ? input.data : {};
+    const notes = typeof input.notes === 'string' ? input.notes : '';
+    // 故事阶段 / 具体章节节点可绑定真实对象，标题与简介随之双向同步
+    let stageId: string | null = null;
+    let chapterId: string | null = null;
+    let boundTitle = title;
+    let boundDescription = typeof input.description === 'string' ? input.description : '';
+    if (type === 'stage' && input.stageId) {
+      const stage = this.ctx.db.get<{ id: string; name: string; summary: string; project_id: string }>(
+        'SELECT id, name, summary, project_id FROM stages WHERE id = ?',
+        input.stageId,
+      );
+      if (!stage) throw notFound(`阶段不存在：${input.stageId}`);
+      if (stage.project_id !== projectId) throw validationError('绑定的阶段不属于该项目');
+      stageId = stage.id;
+      boundTitle = stage.name;
+      boundDescription = stage.summary ?? '';
+    }
+    if (type === 'chapter' && input.chapterId) {
+      const chapter = this.ctx.db.get<{ id: string; name: string; summary: string; project_id: string }>(
+        'SELECT id, name, summary, project_id FROM chapters WHERE id = ?',
+        input.chapterId,
+      );
+      if (!chapter) throw notFound(`章节不存在：${input.chapterId}`);
+      if (chapter.project_id !== projectId) throw validationError('绑定的章节不属于该项目');
+      chapterId = chapter.id;
+      boundTitle = chapter.name;
+      boundDescription = chapter.summary ?? '';
+    }
+    if (stageId) data.stageId = stageId;
+    if (chapterId) data.chapterId = chapterId;
     this.ctx.db.transaction(() => {
       this.ctx.db.run(
-        `INSERT INTO outline_nodes (id, project_id, type, title, description, x, y, width, height, color, data, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO outline_nodes (id, project_id, type, title, description, notes, stage_id, chapter_id, x, y, width, height, color, data, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id,
         projectId,
         type,
-        title,
-        typeof input.description === 'string' ? input.description.slice(0, 200000) : '',
+        boundTitle,
+        boundDescription.slice(0, 200000),
+        notes,
+        stageId,
+        chapterId,
         x,
         y,
         width,
@@ -193,11 +242,14 @@ export class OutlineService {
     const node = this.getNode(nodeId);
     const sets: string[] = [];
     const params: unknown[] = [];
+    let nextTitle: string | null = null;
+    let nextDescription: string | null = null;
     if (patch.title !== undefined) {
       const title = String(patch.title).trim();
       if (!title) throw validationError('节点名称不能为空');
       sets.push('title = ?');
       params.push(title.slice(0, 200));
+      nextTitle = title.slice(0, 200);
     }
     if (patch.type !== undefined) {
       sets.push('type = ?');
@@ -206,6 +258,12 @@ export class OutlineService {
     if (patch.description !== undefined) {
       sets.push('description = ?');
       params.push(String(patch.description).slice(0, 200000));
+      nextDescription = String(patch.description).slice(0, 200000);
+    }
+    if (patch.notes !== undefined) {
+      // 备注不限字数，仅防止极端内存占用
+      sets.push('notes = ?');
+      params.push(String(patch.notes).slice(0, 5_000_000));
     }
     for (const key of ['x', 'y', 'width', 'height'] as const) {
       if (patch[key] !== undefined) {
@@ -226,9 +284,91 @@ export class OutlineService {
     if (!sets.length) return node;
     sets.push('updated_at = ?');
     params.push(nowIso(), nodeId);
-    this.ctx.db.run(`UPDATE outline_nodes SET ${sets.join(', ')} WHERE id = ?`, ...params);
+    this.ctx.db.transaction(() => {
+      this.ctx.db.run(`UPDATE outline_nodes SET ${sets.join(', ')} WHERE id = ?`, ...params);
+      // 绑定的真实阶段/章节：名称与简介双向同步
+      if (nextTitle !== null || nextDescription !== null) {
+        this.structureSync.syncBoundEntity(
+          node.type,
+          node.data?.stageId ? String(node.data.stageId) : null,
+          node.data?.chapterId ? String(node.data.chapterId) : null,
+          nextTitle ?? node.title,
+          nextDescription ?? node.description,
+        );
+      }
+    });
     this.ctx.changes.emitChange({ scope: 'outline', projectId: node.projectId, action: 'node.update' });
     return this.getNode(nodeId);
+  }
+
+  /** 批量把未绑定的阶段/章节节点自动绑定到同名实体（迁移与新建时使用）。 */
+  reconcileBindings(projectId: string): { bound: number } {
+    this.assertProject(projectId);
+    const ts = nowIso();
+    let bound = 0;
+    this.ctx.db.transaction(() => {
+      const stageNodes = this.ctx.db.all<{ id: string; title: string }>(
+        "SELECT id, title FROM outline_nodes WHERE project_id = ? AND type = 'stage' AND stage_id IS NULL",
+        projectId,
+      );
+      for (const n of stageNodes) {
+        const stage = this.ctx.db.get<{ id: string; name: string; summary: string }>(
+          'SELECT id, name, summary FROM stages WHERE project_id = ? AND name = ? LIMIT 1',
+          projectId,
+          n.title,
+        );
+        if (stage) {
+          const row = this.ctx.db.get<{ data: string }>('SELECT data FROM outline_nodes WHERE id = ?', n.id);
+          let data: Record<string, unknown> = {};
+          try {
+            data = JSON.parse(row?.data ?? '{}');
+          } catch {
+            data = {};
+          }
+          data.stageId = stage.id;
+          this.ctx.db.run(
+            'UPDATE outline_nodes SET stage_id = ?, description = ?, data = ?, updated_at = ? WHERE id = ?',
+            stage.id,
+            stage.summary ?? '',
+            JSON.stringify(data),
+            ts,
+            n.id,
+          );
+          bound++;
+        }
+      }
+      const chapterNodes = this.ctx.db.all<{ id: string; title: string }>(
+        "SELECT id, title FROM outline_nodes WHERE project_id = ? AND type = 'chapter' AND chapter_id IS NULL",
+        projectId,
+      );
+      for (const n of chapterNodes) {
+        const chapter = this.ctx.db.get<{ id: string; name: string; summary: string }>(
+          'SELECT id, name, summary FROM chapters WHERE project_id = ? AND name = ? LIMIT 1',
+          projectId,
+          n.title,
+        );
+        if (chapter) {
+          const row = this.ctx.db.get<{ data: string }>('SELECT data FROM outline_nodes WHERE id = ?', n.id);
+          let data: Record<string, unknown> = {};
+          try {
+            data = JSON.parse(row?.data ?? '{}');
+          } catch {
+            data = {};
+          }
+          data.chapterId = chapter.id;
+          this.ctx.db.run(
+            'UPDATE outline_nodes SET chapter_id = ?, description = ?, data = ?, updated_at = ? WHERE id = ?',
+            chapter.id,
+            chapter.summary ?? '',
+            JSON.stringify(data),
+            ts,
+            n.id,
+          );
+          bound++;
+        }
+      }
+    });
+    return { bound };
   }
 
   /** 批量保存画布位置（拖动结束后调用，减少写入次数）。 */
@@ -277,11 +417,17 @@ export class OutlineService {
         { nodeId, title: node.title },
       );
     }
+    // 只删除画布节点，不删除真实章节/阶段（避免误删正文）；绑定关系随节点消失
     this.ctx.db.transaction(() => {
       this.ctx.db.run('DELETE FROM outline_nodes WHERE id = ?', nodeId);
     });
     this.ctx.changes.emitChange({ scope: 'outline', projectId: node.projectId, action: 'node.delete' });
     return { deleted: true, id: nodeId };
+  }
+
+  /** 直接清空节点备注（一键删除）。 */
+  clearNotes(nodeId: string): OutlineNode {
+    return this.updateNode(nodeId, { notes: '' });
   }
 
   duplicateNode(nodeId: string, offset = 32): OutlineNode {

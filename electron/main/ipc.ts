@@ -7,6 +7,7 @@ import type { EndpointFileService } from './api/discovery';
 import { buildAgentGuide } from './api/agentGuide';
 import { buildOpenApiSpec } from './api/openapi';
 import { errorPayload, NovelError } from './errors';
+import { describeDataLocation, migrateDataDir, resetDataDir, switchDataDir } from './dataLocation';
 import type { ProjectUiSettings, UiSettings } from '@shared/types';
 
 export interface IpcDeps {
@@ -92,7 +93,77 @@ export function registerIpc(deps: IpcDeps): void {
     wrap(() => ({ dirty: deps.isDirty() })),
   );
 
-  ipcMain.handle('app:backups', wrap(() => ({ backups: core.backup.list() })));
+  // ---------- 数据存储位置 ----------
+  ipcMain.handle(
+    'app:dataLocation',
+    wrap(() => describeDataLocation(core.dataDir)),
+  );
+  ipcMain.handle(
+    'app:chooseDataDir',
+    wrap(async (_e, mode: 'move' | 'switch' = 'move') => {
+      const win = deps.getWindow();
+      const result = await dialog.showOpenDialog(win ?? undefined!, {
+        title: mode === 'move' ? '选择新的数据存储目录（现有数据将迁移）' : '选择数据目录',
+        properties: ['openDirectory', 'createDirectory'],
+        buttonLabel: '选择此目录',
+      });
+      if (result.canceled || !result.filePaths[0]) return { canceled: true as const };
+      return { canceled: false as const, dir: result.filePaths[0], mode };
+    }),
+  );
+  ipcMain.handle(
+    'app:moveDataDir',
+    wrap(async (_e, target: string, options: { mode?: 'move' | 'switch'; relaunch?: boolean } = {}) => {
+      if (typeof target !== 'string' || !target.trim()) {
+        throw new NovelError('VALIDATION_ERROR', '目标目录无效', 400);
+      }
+      const mode = options.mode ?? 'move';
+      const current = core.dataDir;
+      if (path.resolve(target) === path.resolve(current)) {
+        throw new NovelError('VALIDATION_ERROR', '目标目录与当前数据目录相同', 400);
+      }
+      // 迁移前先做一次完整备份，确保可回退
+      core.backup.create('manual');
+      core.backup.stopAutoBackup();
+      core.db.close();
+      let result: { from: string; to: string; copiedBytes: number; copiedFiles: number; message: string };
+      try {
+        if (mode === 'move') {
+          result = migrateDataDir(current, target);
+        } else {
+          switchDataDir(target);
+          result = {
+            from: current,
+            to: path.resolve(target),
+            copiedBytes: 0,
+            copiedFiles: 0,
+            message: `数据位置已切换到 ${path.resolve(target)}，请重新启动软件。`,
+          };
+        }
+      } catch (err) {
+        throw new NovelError('INTERNAL_ERROR', `切换数据目录失败：${err instanceof Error ? err.message : String(err)}`, 500);
+      }
+      // 重启应用加载新目录（自动化测试可通过 DASHI_NO_RELAUNCH=1 禁用）
+      if (process.env.DASHI_NO_RELAUNCH !== '1') {
+        setTimeout(() => {
+          app.relaunch();
+          app.exit(0);
+        }, 900);
+      }
+      return { ...result, restarting: true };
+    }),
+  );
+  ipcMain.handle(
+    'app:resetDataDir',
+    wrap(() => {
+      resetDataDir();
+      return { reset: true, message: '已恢复默认数据位置，请重新启动软件。' };
+    }),
+  );
+  ipcMain.handle(
+    'app:backups',
+    wrap(() => ({ backups: core.backup.list() })),
+  );
   ipcMain.handle('app:createBackup', wrap(() => core.backup.create('manual')));
   ipcMain.handle(
     'app:restoreBackup',
@@ -137,6 +208,75 @@ export function registerIpc(deps: IpcDeps): void {
       fs.writeFileSync(result.filePath, options.content, 'utf8');
       return { canceled: false, filePath: result.filePath };
     }),
+  );
+
+  // ---------- 批量导出 ----------
+  ipcMain.handle(
+    'export:chapters',
+    wrap(
+      async (
+        _e,
+        options: {
+          projectId: string;
+          chapterIds: string[];
+          includeStageHeaders?: boolean;
+          defaultName?: string;
+        },
+      ) => {
+        const projectId = options?.projectId;
+        const chapterIds = Array.isArray(options?.chapterIds) ? options.chapterIds : [];
+        if (!projectId) throw new NovelError('VALIDATION_ERROR', '缺少项目 ID', 400);
+        if (!chapterIds.length) throw new NovelError('VALIDATION_ERROR', '请至少选择一个章节', 400);
+        const structure = core.projects.structure(projectId);
+        const chosen = structure.chapters.filter((c) => chapterIds.includes(c.id));
+        if (!chosen.length) throw new NovelError('NOT_FOUND', '所选章节不存在', 404);
+        const win = deps.getWindow();
+        const result = await dialog.showSaveDialog(win ?? undefined!, {
+          title: '导出为 TXT',
+          defaultPath: options.defaultName || `${structure.project.name}.txt`,
+          filters: [{ name: '纯文本', extensions: ['txt'] }],
+        });
+        if (result.canceled || !result.filePath) return { canceled: true as const };
+
+        const parts: string[] = [];
+        const stageOrder = structure.stages.map((s) => s.id);
+        const grouped = new Map<string | null, typeof chosen>();
+        for (const c of chosen) {
+          const key = c.stageId ?? null;
+          if (!grouped.has(key)) grouped.set(key, []);
+          grouped.get(key)!.push(c);
+        }
+        const keys = [...grouped.keys()].sort((a, b) => {
+          if (a === null) return 1;
+          if (b === null) return -1;
+          return stageOrder.indexOf(a) - stageOrder.indexOf(b);
+        });
+        for (const key of keys) {
+          const list = grouped.get(key)!;
+          const stage = structure.stages.find((s) => s.id === key);
+          if (options.includeStageHeaders !== false) {
+            parts.push(`\n\n========== ${stage?.name ?? '未分阶段'} ==========\n`);
+            if (stage?.summary) parts.push(`${stage.summary}\n`);
+          }
+          for (const chapter of list) {
+            const content = core.structure.getContent(chapter.id);
+            parts.push(`\n\n${chapter.name}\n`);
+            if (chapter.summary) parts.push(`【简介】${chapter.summary}\n`);
+            parts.push('\n');
+            parts.push(content.content || '（本章暂无正文）');
+          }
+        }
+        const header = `${structure.project.name}\n导出时间：${new Date().toLocaleString('zh-CN')}\n共 ${chosen.length} 章\n`;
+        const text = `${header}${parts.join('')}\n`;
+        fs.writeFileSync(result.filePath, text, 'utf8');
+        return {
+          canceled: false as const,
+          filePath: result.filePath,
+          chapterCount: chosen.length,
+          wordCount: chosen.reduce((sum, c) => sum + c.wordCount, 0),
+        };
+      },
+    ),
   );
 
   // ---------- 项目 ----------

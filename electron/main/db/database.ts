@@ -201,6 +201,23 @@ export class Database {
         PRAGMA user_version = 1;
       `);
     }
+    if (current < 2) {
+      // v2：章节/阶段简介、大纲节点备注与绑定字段、具体章节节点
+      const addColumn = (table: string, column: string, ddl: string) => {
+        const cols = this.raw.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+        if (!cols.some((c) => c.name === column)) {
+          this.raw.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl};`);
+        }
+      };
+      addColumn('chapters', 'summary', "summary TEXT NOT NULL DEFAULT ''");
+      addColumn('stages', 'summary', "summary TEXT NOT NULL DEFAULT ''");
+      addColumn('outline_nodes', 'notes', "notes TEXT NOT NULL DEFAULT ''");
+      addColumn('outline_nodes', 'stage_id', 'stage_id TEXT REFERENCES stages(id) ON DELETE SET NULL');
+      addColumn('outline_nodes', 'chapter_id', 'chapter_id TEXT REFERENCES chapters(id) ON DELETE SET NULL');
+      this.raw.exec('CREATE INDEX IF NOT EXISTS idx_nodes_stage ON outline_nodes(stage_id);');
+      this.raw.exec('CREATE INDEX IF NOT EXISTS idx_nodes_chapter ON outline_nodes(chapter_id);');
+      this.raw.exec('PRAGMA user_version = 2;');
+    }
     // 未来版本在此追加迁移分支，保证旧数据库可平滑升级。
   }
 

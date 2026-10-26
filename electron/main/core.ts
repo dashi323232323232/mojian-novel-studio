@@ -44,7 +44,10 @@ export class AppCore {
     ctx.settings = this.settings;
     this.projects = new ProjectService(ctx);
     this.structure = new StructureService(ctx);
-    this.outline = new OutlineService(ctx);
+    this.outline = new OutlineService(ctx, {
+      syncBoundEntity: (nodeType, stageId, chapterId, title, description) =>
+        this.structure.syncBoundEntity(nodeType, stageId, chapterId, title, description),
+    });
     this.foreshadow = new ForeshadowService(ctx);
     this.backup = new BackupService({ dataDir, db: this.db });
     this.audio = new AudioService(

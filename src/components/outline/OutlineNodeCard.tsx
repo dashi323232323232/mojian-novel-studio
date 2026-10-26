@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-import { BookOpen, Flag, Lightbulb, User, StickyNote, Link2 } from 'lucide-react';
+import { BookOpen, Flag, Lightbulb, User, StickyNote, Link2, FileText, StickyNote as NoteIcon } from 'lucide-react';
 import { NODE_TYPE_META } from '@shared/constants';
 import type { NodeType } from '@shared/types';
 
@@ -9,6 +9,9 @@ export interface OutlineNodePayload {
   description: string;
   nodeType: NodeType;
   chapterCount: number;
+  hasNotes?: boolean;
+  boundChapterId?: string | null;
+  boundStageId?: string | null;
   foreshadowStatus?: string;
   [key: string]: unknown;
 }
@@ -16,6 +19,7 @@ export interface OutlineNodePayload {
 const ICONS: Record<NodeType, React.ReactNode> = {
   stage: <Flag size={11} />,
   event: <BookOpen size={11} />,
+  chapter: <FileText size={11} />,
   character: <User size={11} />,
   foreshadow: <Lightbulb size={11} />,
   note: <StickyNote size={11} />,
@@ -45,6 +49,11 @@ export const OutlineNodeCard = memo(function OutlineNodeCard({ data, selected }:
           </span>
         </span>
         <span style={{ flex: 1 }} />
+        {d.hasNotes ? (
+          <span className="node-card-badge" title="有备注">
+            <NoteIcon size={9} />
+          </span>
+        ) : null}
         {d.chapterCount > 0 ? (
           <span className="node-card-badge" title={`关联 ${d.chapterCount} 个章节`}>
             <Link2 size={9} />

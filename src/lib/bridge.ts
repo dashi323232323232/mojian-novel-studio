@@ -51,6 +51,22 @@ interface RawApi {
     setDirty(dirty: boolean): void;
     closeConfirmed(): void;
     cancelClose(): void;
+    dataLocation(): Promise<Result<{
+      currentDir: string;
+      defaultDir: string;
+      bootstrapFile: string;
+      isCustom: boolean;
+      exists: boolean;
+      dbSize: number;
+      audioCount: number;
+      backupCount: number;
+    }>>;
+    chooseDataDir(mode?: 'move' | 'switch'): Promise<Result<{ canceled: boolean; dir?: string; mode?: string }>>;
+    moveDataDir(
+      target: string,
+      options?: { mode?: 'move' | 'switch'; relaunch?: boolean },
+    ): Promise<Result<{ from: string; to: string; copiedBytes: number; copiedFiles: number; message: string; restarting: boolean }>>;
+    resetDataDir(): Promise<Result<{ reset: boolean; message: string }>>;
     backups(): Promise<Result<{ backups: BackupInfo[] }>>;
     createBackup(): Promise<Result<BackupInfo>>;
     restoreBackup(fileName: string): Promise<Result<{ restored: boolean; safetyBackup: BackupInfo; message: string }>>;
@@ -63,6 +79,14 @@ interface RawApi {
     onMenuAction(cb: (action: string) => void): () => void;
     onRequestClose(cb: () => void): () => void;
   };
+  export: {
+    chapters(options: {
+      projectId: string;
+      chapterIds: string[];
+      includeStageHeaders?: boolean;
+      defaultName?: string;
+    }): Promise<Result<{ canceled: boolean; filePath?: string; chapterCount?: number; wordCount?: number }>>;
+  };
   projects: {
     list(): Promise<Result<Project[]>>;
     create(input: { name: string; description?: string; genre?: string }): Promise<Result<Project>>;
@@ -73,14 +97,20 @@ interface RawApi {
     search(query: string, projectId?: string): Promise<Result<SearchHit[]>>;
   };
   stages: {
-    create(projectId: string, input: { name: string }): Promise<Result<Stage>>;
-    update(stageId: string, patch: { name: string }): Promise<Result<Stage>>;
+    create(projectId: string, input: { name: string; summary?: string }): Promise<Result<Stage>>;
+    update(stageId: string, patch: { name?: string; summary?: string }): Promise<Result<Stage>>;
     reorder(projectId: string, orderedIds: string[]): Promise<Result<Stage[]>>;
     delete(stageId: string, options: DeleteStageOptions): Promise<Result<unknown>>;
   };
   chapters: {
-    create(projectId: string, input: { name: string; stageId?: string | null }): Promise<Result<Chapter>>;
-    update(chapterId: string, patch: { name?: string; stageId?: string | null }): Promise<Result<Chapter>>;
+    create(
+      projectId: string,
+      input: { name: string; summary?: string; stageId?: string | null },
+    ): Promise<Result<Chapter>>;
+    update(
+      chapterId: string,
+      patch: { name?: string; summary?: string; stageId?: string | null },
+    ): Promise<Result<Chapter>>;
     move(chapterId: string, input: { stageId?: string | null; beforeChapterId?: string | null }): Promise<Result<Chapter>>;
     reorder(projectId: string, orderedIds: string[]): Promise<Result<Chapter[]>>;
     delete(chapterId: string, options: { confirm: boolean }): Promise<Result<unknown>>;

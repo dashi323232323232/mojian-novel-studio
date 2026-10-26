@@ -1,7 +1,7 @@
 # 大师小说工作台 · Agent 接入文档
 
-> 版本：软件 1.0.0 · API v1
-> 生成时间：2026/10/27 01:46:39
+> 版本：软件 1.1.0 · API v1
+> 生成时间：2026/10/27 02:34:10
 > 当前数据库项目数：0
 
 本文档是给外部 AI Agent / 自动化脚本的**完整操作手册**。所有接口均已在软件中真实实现，文档与实现保持同步。请按「服务发现 → 鉴权 → 调用 → 校验」的顺序使用。
@@ -23,7 +23,7 @@
 ```json
 {
   "app": "大师小说工作台",
-  "appVersion": "1.0.0",
+  "appVersion": "1.1.0",
   "apiVersion": "v1",
   "baseUrl": "http://127.0.0.1:45871",
   "host": "127.0.0.1",
@@ -31,8 +31,8 @@
   "auth": { "type": "bearer", "header": "Authorization: Bearer <token>" },
   "docs": "http://127.0.0.1:45871/api/v1/agent-guide",
   "openapi": "http://127.0.0.1:45871/api/v1/openapi.json",
-  "pid": 38988,
-  "updatedAt": "2026-10-26T17:46:39.814Z"
+  "pid": 41052,
+  "updatedAt": "2026-10-26T18:34:10.374Z"
 }
 ```
 
@@ -83,8 +83,10 @@
 ### 3.2 阶段 Stage
 
 ```json
-{ "id": "stg_...", "projectId": "prj_...", "name": "第一阶段：战云密布", "sortOrder": 0, "chapterCount": 3, "wordCount": 12000 }
+{ "id": "stg_...", "projectId": "prj_...", "name": "第一阶段：战云密布", "summary": "战云密布，局势一触即发。", "sortOrder": 0, "chapterCount": 3, "wordCount": 12000 }
 ```
+
+- `summary` 是阶段简介，与大纲中绑定的故事阶段节点（`type=stage`）**双向同步**。
 
 ### 3.3 章节 Chapter
 
@@ -94,6 +96,7 @@
   "projectId": "prj_...",
   "stageId": "stg_...",
   "name": "第一章 宣战",
+  "summary": "巴黎的夏天，宣战的消息传遍街头。",
   "sortOrder": 0,
   "wordCount": 3200,
   "contentUpdatedAt": "2026-10-27T00:10:00.000Z"
@@ -101,6 +104,7 @@
 ```
 
 - 章节 ID 由服务端生成，与名称无关；重命名不会改变 ID。
+- `summary` 是章节简介，与大纲中绑定的具体章节节点（`type=chapter`）**双向同步**。创建时只需 `name`，简介可留空。
 - `sortOrder` 为全项目顺序，越小越靠前。
 
 ### 3.4 章节正文与版本
@@ -138,12 +142,15 @@
 }
 ```
 
+节点另有 `notes` 字段（备注，不限字数，可 `PATCH notes=""` 清空，或调用 `POST /api/v1/outline/nodes/{nodeId}/clear-notes`）。
+
 节点类型 `type`：
 
 | 值 | 含义 | data 常用字段 |
 | --- | --- | --- |
-| `stage` | 故事阶段 | `goal` |
+| `stage` | 故事阶段（可绑定真实阶段） | `stageId`、`goal` |
 | `event` | 剧情事件 | `time`、`location` |
+| `chapter` | 具体章节（可绑定真实章节） | `chapterId` |
 | `character` | 人物 | `role`、`age`、`appearance`、`personality` |
 | `foreshadow` | 伏笔 | `foreshadowId` |
 | `note` | 备注 / 普通文本 | `notes` |
@@ -291,6 +298,8 @@
 | GET | `/api/v1/outline/nodes/{nodeId}` | 查询单个节点 |  |
 | PATCH | `/api/v1/outline/nodes/{nodeId}` | 修改节点 |  |
 | DELETE | `/api/v1/outline/nodes/{nodeId}` | 删除节点（需确认） | 是 |
+| POST | `/api/v1/outline/nodes/{nodeId}/clear-notes` | 清空节点备注 |  |
+| POST | `/api/v1/projects/{projectId}/outline/reconcile-bindings` | 按名称自动绑定阶段/章节节点 |  |
 | POST | `/api/v1/outline/nodes/{nodeId}/duplicate` | 复制节点 |  |
 | POST | `/api/v1/projects/{projectId}/outline/nodes/positions` | 批量保存节点位置 |  |
 | GET | `/api/v1/projects/{projectId}/outline/edges` | 查询连线 |  |
