@@ -18,6 +18,10 @@ async function main() {
   const win = await app.firstWindow();
   await win.waitForSelector('.sidebar', { timeout: 20000 });
   await win.waitForTimeout(900);
+  await win.evaluate(() => {
+    localStorage.setItem('dashi.editor.settings', JSON.stringify({ fontSize: 18, lineHeight: 1.9, fontFamily: 'serif', autoSave: true, showWordCount: true }));
+  });
+
 
   // 创建项目
   await win.click('.sidebar .btn-primary');

@@ -19,6 +19,10 @@ async function launch() {
   await win.waitForSelector('.sidebar', { timeout: 20000 });
   await win.waitForTimeout(900);
   return { app, win };
+  await win.evaluate(() => {
+    localStorage.setItem('dashi.editor.settings', JSON.stringify({ fontSize: 18, lineHeight: 1.9, fontFamily: 'serif', autoSave: true, showWordCount: true }));
+  });
+
 }
 
 async function main() {

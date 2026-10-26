@@ -15,6 +15,8 @@ export interface IpcDeps {
   endpoint: EndpointFileService;
   getWindow: () => BrowserWindow | null;
   markDirty: (dirty: boolean) => void;
+  isDirty: () => boolean;
+  cancelClose: () => void;
   requestClose: () => void;
 }
 
@@ -84,6 +86,11 @@ export function registerIpc(deps: IpcDeps): void {
   );
   ipcMain.on('app:setDirty', (_e, dirty: boolean) => deps.markDirty(Boolean(dirty)));
   ipcMain.on('app:closeConfirmed', () => deps.requestClose());
+  ipcMain.on('app:cancelClose', () => deps.cancelClose());
+  ipcMain.handle(
+    'app:isDirty',
+    wrap(() => ({ dirty: deps.isDirty() })),
+  );
 
   ipcMain.handle('app:backups', wrap(() => ({ backups: core.backup.list() })));
   ipcMain.handle('app:createBackup', wrap(() => core.backup.create('manual')));
