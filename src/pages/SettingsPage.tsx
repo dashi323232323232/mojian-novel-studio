@@ -1,0 +1,349 @@
+import { useEffect, useState } from 'react';
+import {
+  Settings as SettingsIcon,
+  Database,
+  HardDriveDownload,
+  RotateCcw,
+  Trash2,
+  FolderOpen,
+  Save,
+  BookOpen,
+  FileText,
+  Info,
+  ShieldCheck,
+} from 'lucide-react';
+import type { AppInfo, BackupInfo, UiSettings } from '@shared/types';
+import { formatBytes, formatDateTime } from '@shared/text';
+import { api } from '../lib/api';
+import { toast } from '../lib/toast';
+import { ConfirmDialog } from '../components/Modal';
+
+export function SettingsPage() {
+  const [info, setInfo] = useState<AppInfo | null>(null);
+  const [stats, setStats] = useState<Record<string, number | string | null> | null>(null);
+  const [settings, setSettings] = useState<UiSettings | null>(null);
+  const [backups, setBackups] = useState<BackupInfo[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<BackupInfo | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BackupInfo | null>(null);
+
+  const refresh = async () => {
+    try {
+      const [i, s, ui, b] = await Promise.all([api.info(), api.stats(), api.settings(), api.backups()]);
+      setInfo(i);
+      setStats(s);
+      setSettings(ui);
+      setBackups(b.backups);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '读取设置失败');
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const updateEditor = async (patch: Partial<UiSettings['editor']>) => {
+    if (!settings) return;
+    const next = { ...settings, editor: { ...settings.editor, ...patch } };
+    setSettings(next);
+    try {
+      const saved = await api.updateSettings({ editor: next.editor });
+      setSettings(saved);
+      localStorage.setItem('mojian.editor.settings', JSON.stringify(saved.editor));
+      toast.success('编辑器设置已保存');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '保存设置失败');
+    }
+  };
+
+  const createBackup = async () => {
+    setBusy(true);
+    try {
+      const backup = await api.createBackup();
+      await refresh();
+      toast.success(`备份已创建：${backup.fileName}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '创建备份失败');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const restore = async () => {
+    if (!restoreTarget) return;
+    setBusy(true);
+    try {
+      const result = await api.restoreBackup(restoreTarget.fileName);
+      setRestoreTarget(null);
+      toast.success(result.message);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '恢复备份失败');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeBackup = async () => {
+    if (!deleteTarget) return;
+    setBusy(true);
+    try {
+      await api.deleteBackup(deleteTarget.fileName);
+      await refresh();
+      setDeleteTarget(null);
+      toast.success('备份已删除');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '删除备份失败');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="page">
+      <div className="page-header">
+        <div className="page-title">
+          <SettingsIcon size={19} style={{ color: 'var(--accent)' }} />
+          设置与备份
+          <span className="sub">数据位置、编辑器偏好与可靠性</span>
+        </div>
+      </div>
+      <div className="settings-page">
+        <div className="settings-grid">
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <FileText size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                编辑器
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>对章节编辑页与联动工作区生效</span>
+            </div>
+            <div className="settings-card-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="field">
+                  <label className="field-label">字号：{settings?.editor.fontSize ?? 18}px</label>
+                  <input
+                    type="range"
+                    min={14}
+                    max={26}
+                    value={settings?.editor.fontSize ?? 18}
+                    onChange={(e) => void updateEditor({ fontSize: Number(e.target.value) })}
+                    style={{ accentColor: 'var(--accent)' }}
+                  />
+                </div>
+                <div className="field">
+                  <label className="field-label">行距：{(settings?.editor.lineHeight ?? 1.9).toFixed(1)}</label>
+                  <input
+                    type="range"
+                    min={1.4}
+                    max={2.6}
+                    step={0.1}
+                    value={settings?.editor.lineHeight ?? 1.9}
+                    onChange={(e) => void updateEditor({ lineHeight: Number(e.target.value) })}
+                    style={{ accentColor: 'var(--accent)' }}
+                  />
+                </div>
+                <div className="field">
+                  <label className="field-label">正文字体</label>
+                  <select
+                    className="select"
+                    value={settings?.editor.fontFamily ?? 'serif'}
+                    onChange={(e) => void updateEditor({ fontFamily: e.target.value as 'serif' | 'sans' })}
+                  >
+                    <option value="serif">宋体 / 衬线（推荐长篇）</option>
+                    <option value="sans">黑体 / 无衬线</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="field-label">自动保存</label>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={settings?.editor.autoSave ?? true}
+                      onChange={(e) => void updateEditor({ autoSave: e.target.checked })}
+                    />
+                    <span>输入停顿约 1.2 秒后自动保存（推荐）</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <Database size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                数据存储
+              </span>
+              <button className="btn btn-sm" onClick={() => void api.openDataDir()}>
+                <FolderOpen size={12} /> 打开数据目录
+              </button>
+            </div>
+            <div className="settings-card-body">
+              <div className="kv-row">
+                <span className="k">数据库</span>
+                <span className="v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>
+                  {info?.dbPath ?? '—'}
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="k">数据目录</span>
+                <span className="v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>
+                  {info?.dataDir ?? '—'}
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="k">数据库大小</span>
+                <span className="v">{formatBytes(Number(stats?.dbSize ?? 0))}</span>
+              </div>
+              <div className="stat-grid" style={{ marginTop: 12 }}>
+                <div className="stat">
+                  <div className="k">项目</div>
+                  <div className="v">{stats?.projects ?? 0}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">章节</div>
+                  <div className="v">{stats?.chapters ?? 0}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">总字数</div>
+                  <div className="v">{stats?.words ?? 0}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">大纲节点</div>
+                  <div className="v">{stats?.nodes ?? 0}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">连线</div>
+                  <div className="v">{stats?.edges ?? 0}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">伏笔</div>
+                  <div className="v">{stats?.foreshadows ?? 0}</div>
+                </div>
+                <div className="stat">
+                  <div className="k">音频任务</div>
+                  <div className="v">{stats?.audioJobs ?? 0}</div>
+                </div>
+              </div>
+              <div className="info-note" style={{ marginTop: 12, marginBottom: 0 }}>
+                数据保存在本地 SQLite 数据库（WAL 模式，事务写入）。章节正文独立存储，长篇上千章也不会拖慢列表。软件意外退出不会破坏项目文件。
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <HardDriveDownload size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                备份与恢复
+              </span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-sm" onClick={() => void createBackup()} disabled={busy}>
+                  {busy ? <span className="spinner" /> : <Save size={12} />} 立即备份
+                </button>
+              </div>
+            </div>
+            <div className="settings-card-body">
+              <div className="field-hint" style={{ marginBottom: 10 }}>
+                自动备份每 10 分钟最多执行一次，保留最近 20 份。恢复前会自动创建当前数据的安全备份。
+              </div>
+              {backups.length === 0 ? (
+                <div style={{ padding: 14, fontSize: 12.5, color: 'var(--text-tertiary)' }}>
+                  暂无备份。点击「立即备份」创建第一份。
+                </div>
+              ) : (
+                backups.slice(0, 12).map((b) => (
+                  <div className="backup-row" key={b.fileName}>
+                    <span
+                      className="badge"
+                      style={{
+                        background: b.auto ? 'var(--bg-subtle)' : 'var(--accent-soft)',
+                        color: b.auto ? 'var(--text-tertiary)' : 'var(--accent)',
+                      }}
+                    >
+                      {b.auto ? '自动' : '手动'}
+                    </span>
+                    <span className="nm" title={b.fileName}>
+                      {b.fileName}
+                    </span>
+                    <span className="sz">{formatDateTime(b.createdAt)}</span>
+                    <span className="sz">{formatBytes(b.size)}</span>
+                    <button className="icon-btn" title="恢复此备份" onClick={() => setRestoreTarget(b)}>
+                      <RotateCcw size={13} />
+                    </button>
+                    <button className="icon-btn" title="删除备份" onClick={() => setDeleteTarget(b)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <Info size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                关于
+              </span>
+            </div>
+            <div className="settings-card-body">
+              <div className="kv-row">
+                <span className="k">软件版本</span>
+                <span className="v">{info?.appVersion ?? '1.0.0'}</span>
+              </div>
+              <div className="kv-row">
+                <span className="k">API 版本</span>
+                <span className="v">{info?.apiVersion ?? 'v1'}</span>
+              </div>
+              <div className="kv-row">
+                <span className="k">运行环境</span>
+                <span className="v">
+                  Electron {info?.electron ?? '—'} · Node {info?.node ?? '—'} · Chromium {info?.chrome ?? '—'}
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="k">数据保留策略</span>
+                <span className="v">章节正文仅保留当前版本 + 上一个版本，可随时回溯，更早版本自动清理。</span>
+              </div>
+              <div className="warn-note" style={{ marginTop: 12, marginBottom: 0 }}>
+                <ShieldCheck size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+                所有数据默认仅保存在本机，不上传云端。请定期把「备份」文件复制到其他磁盘。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={Boolean(restoreTarget)}
+        title="恢复备份"
+        confirmText="恢复并覆盖当前数据"
+        danger
+        busy={busy}
+        onCancel={() => setRestoreTarget(null)}
+        onConfirm={() => void restore()}
+        message={
+          <>
+            将使用备份「<b>{restoreTarget?.fileName}</b>」覆盖当前数据库。
+            <br />
+            系统会先自动创建一份当前数据的安全备份。恢复后请重新启动软件。
+          </>
+        }
+      >
+        <div className="danger-note">恢复会丢失备份时间点之后的所有修改，请确认。</div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="删除备份"
+        confirmText="删除"
+        busy={busy}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void removeBackup()}
+        message={<>确定删除备份「{deleteTarget?.fileName}」？该操作不可恢复。</>}
+      />
+    </div>
+  );
+}
