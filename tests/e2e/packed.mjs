@@ -74,8 +74,20 @@ async function main() {
 
   // 音频页检测
   await win.click('.nav-child:has-text("音频制作")');
-  await win.waitForTimeout(1500);
-  record('打包版检测到本地语音', !(await win.locator('button:has-text("制作音频")').isDisabled()));
+  // 本地 SAPI 声音探测需要 1~2 秒，轮询等待按钮变为可用
+  let voiceReady = false;
+  for (let i = 0; i < 24; i++) {
+    await win.waitForTimeout(500);
+    const disabled = await win
+      .locator('button:has-text("制作音频")')
+      .isDisabled()
+      .catch(() => true);
+    if (!disabled) {
+      voiceReady = true;
+      break;
+    }
+  }
+  record('打包版检测到本地语音', voiceReady);
 
   // Agent 页与 API 服务
   await win.click('.sidebar-bottom-item:has-text("Agent 接入")');

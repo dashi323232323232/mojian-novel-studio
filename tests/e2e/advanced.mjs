@@ -179,9 +179,13 @@ async function main() {
   await win.screenshot({ path: 'tests/e2e/shots/12-outline-moved.png' });
 
   await win.click('.nav-child:has-text("音频制作")');
-  await win.waitForTimeout(1500);
   const audioBtn = win.locator('button:has-text("制作音频")');
-  const disabled = await audioBtn.isDisabled();
+  let disabled = true;
+  for (let i = 0; i < 24; i++) {
+    await win.waitForTimeout(500);
+    disabled = await audioBtn.isDisabled().catch(() => true);
+    if (!disabled) break;
+  }
   record('音频生成按钮可用（已检测本地语音）', !disabled);
   if (!disabled) {
     await audioBtn.click();
