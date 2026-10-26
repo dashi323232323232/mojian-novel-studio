@@ -1,7 +1,7 @@
-# 墨笺小说工作台 · Agent 接入文档
+# 大师小说工作台 · Agent 接入文档
 
 > 版本：软件 1.0.0 · API v1
-> 生成时间：2026/10/27 01:01:13
+> 生成时间：2026/10/27 01:20:13
 > 当前数据库项目数：0
 
 本文档是给外部 AI Agent / 自动化脚本的**完整操作手册**。所有接口均已在软件中真实实现，文档与实现保持同步。请按「服务发现 → 鉴权 → 调用 → 校验」的顺序使用。
@@ -15,14 +15,14 @@
 - **不要写死端口**：软件端口若被占用会自动顺延，且每次启动可能不同。请始终从服务发现文件读取当前地址：
 
 ```text
-%APPDATA%\墨笺小说工作台\api-endpoint.json
+%APPDATA%\大师小说工作台\api-endpoint.json
 ```
 
 文件内容示例：
 
 ```json
 {
-  "app": "墨笺小说工作台",
+  "app": "大师小说工作台",
   "appVersion": "1.0.0",
   "apiVersion": "v1",
   "baseUrl": "http://127.0.0.1:45871",
@@ -31,8 +31,8 @@
   "auth": { "type": "bearer", "header": "Authorization: Bearer <token>" },
   "docs": "http://127.0.0.1:45871/api/v1/agent-guide",
   "openapi": "http://127.0.0.1:45871/api/v1/openapi.json",
-  "pid": 38060,
-  "updatedAt": "2026-10-26T17:01:13.986Z"
+  "pid": 19480,
+  "updatedAt": "2026-10-26T17:20:13.775Z"
 }
 ```
 
@@ -55,7 +55,7 @@
 - 除 `/health`、`/version`、`/openapi.json`、`/agent-guide` 外，所有接口都必须携带令牌。
 - 令牌错误或缺失返回 `401 UNAUTHORIZED`。
 - 跨站来源（浏览器 Origin 非本机、Sec-Fetch-Site: cross-site）返回 `403 FORBIDDEN`。
-- 可通过请求头 `X-Mojian-Actor: 你的Agent名称` 标记调用方，日志会记录该名称，便于用户审计。
+- 可通过请求头 `X-Dashi-Actor: 你的Agent名称` 标记调用方，日志会记录该名称，便于用户审计。
 
 ---
 
@@ -338,7 +338,7 @@
 | GET | `/api/v1/settings` | 读取界面与 API 设置（不含密钥） |  |
 | PATCH | `/api/v1/settings` | 更新界面设置 |  |
 
-> 完整参数类型、必填规则与示例见 OpenAPI 定义：`GET http://127.0.0.1:45871/api/v1/openapi.json`。高危接口标有 `x-mojian-destructive: true`。
+> 完整参数类型、必填规则与示例见 OpenAPI 定义：`GET http://127.0.0.1:45871/api/v1/openapi.json`。高危接口标有 `x-dashi-destructive: true`。
 
 ---
 
@@ -350,7 +350,7 @@
 
 ```bash
 # 用户数据目录中的服务发现文件（Windows 默认路径如下）
-cat "$APPDATA/墨笺小说工作台/api-endpoint.json"
+cat "$APPDATA/大师小说工作台/api-endpoint.json"
 ```
 
 ```bash
@@ -364,7 +364,7 @@ AUTH="Authorization: Bearer $TOKEN"
 ```bash
 curl -s -X POST "$BASE/api/v1/projects" \
   -H "$AUTH" -H "Content-Type: application/json" \
-  -H "X-Mojian-Actor: MyNovelAgent" \
+  -H "X-Dashi-Actor: MyNovelAgent" \
   -d '{"name":"普法战争","description":"1870 年的故事","genre":"历史小说"}'
 ```
 
@@ -579,10 +579,10 @@ curl -s "$BASE/api/v1/audio/jobs/$JOB" -H "$AUTH"
 
 ## 10. 数据位置与备份
 
-- 数据库：`%APPDATA%\墨笺小说工作台\mojian.db`（SQLite，WAL 模式，事务写入）
-- 音频文件：`%APPDATA%\墨笺小说工作台\audio\<projectId>\`
-- 备份：`%APPDATA%\墨笺小说工作台\backups\`（自动备份 + 手动备份，保留最近 20 份）
-- 服务发现：`%APPDATA%\墨笺小说工作台\api-endpoint.json`
+- 数据库：`%APPDATA%\大师小说工作台\dashi.db`（SQLite，WAL 模式，事务写入）
+- 音频文件：`%APPDATA%\大师小说工作台\audio\<projectId>\`
+- 备份：`%APPDATA%\大师小说工作台\backups\`（自动备份 + 手动备份，保留最近 20 份）
+- 服务发现：`%APPDATA%\大师小说工作台\api-endpoint.json`
 
 章节正文与项目结构分表存储，单个项目上千章、数千节点仍可正常工作。所有写操作均为事务，异常退出不会破坏数据。
 

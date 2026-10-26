@@ -101,7 +101,7 @@ export function Sidebar() {
         <div className="brand">
           <div className="brand-mark">墨</div>
           <div>
-            <div className="brand-name">墨笺小说工作台</div>
+            <div className="brand-name">大师小说工作台</div>
             <div className="brand-sub">Novel Studio</div>
           </div>
         </div>

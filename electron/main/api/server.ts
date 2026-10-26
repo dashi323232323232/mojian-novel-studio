@@ -126,7 +126,7 @@ export class ApiServer {
       res.setHeader('Vary', 'Origin');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Mojian-Actor, X-Request-Id');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Dashi-Actor, X-Mojian-Actor, X-Request-Id');
     res.setHeader('Access-Control-Max-Age', '600');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'no-store');
@@ -147,7 +147,7 @@ export class ApiServer {
         ok = false;
       }
     }
-    const actor = req.headers['x-mojian-actor'];
+    const actor = req.headers['x-dashi-actor'] ?? req.headers['x-mojian-actor'];
     return { ok, actor: typeof actor === 'string' && actor.trim() ? actor.trim().slice(0, 60) : 'agent' };
   }
 

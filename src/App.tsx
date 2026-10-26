@@ -77,7 +77,7 @@ export default function App() {
 
   // 监听主进程数据变更：Agent 或其它窗口修改后同步刷新
   useEffect(() => {
-    const off = window.mojian?.events?.onDataChanged((raw) => {
+    const off = window.dashi?.events?.onDataChanged((raw) => {
       const event = raw as { scope?: string; projectId?: string; source?: string };
       if (!event?.projectId || event.projectId !== activeProjectId) {
         if (event?.scope === 'projects') void loadProjects();
@@ -153,11 +153,11 @@ export default function App() {
 
   // 主进程请求关闭窗口
   useEffect(() => {
-    const off = window.mojian?.app?.onRequestClose(async () => {
+    const off = window.dashi?.app?.onRequestClose(async () => {
       const ok = await confirmLeave();
       if (ok) {
-        window.mojian.app.setDirty(false);
-        window.mojian.app.closeConfirmed();
+        window.dashi.app.setDirty(false);
+        window.dashi.app.closeConfirmed();
       }
     });
     return () => off?.();
@@ -165,7 +165,7 @@ export default function App() {
 
   // 菜单动作
   useEffect(() => {
-    const off = window.mojian?.app?.onMenuAction((action) => {
+    const off = window.dashi?.app?.onMenuAction((action) => {
       if (action === 'new-project') {
         document.querySelector<HTMLButtonElement>('.sidebar .btn-primary')?.click();
       } else if (action === 'save-chapter') {

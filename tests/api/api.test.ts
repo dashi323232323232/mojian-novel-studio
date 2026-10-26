@@ -45,7 +45,7 @@ async function call(
 }
 
 before(async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mojian-api-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashi-api-'));
   const core = new AppCore(dir);
   const endpoint = new EndpointFileService(dir, () => 0);
   const token = 'mj_testtoken_' + 'a'.repeat(20);

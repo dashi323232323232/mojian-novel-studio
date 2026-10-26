@@ -15,8 +15,8 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-const isDev = !app.isPackaged && process.env.MOJIAN_DEV === '1';
-const DEV_URL = process.env.MOJIAN_DEV_URL ?? 'http://127.0.0.1:5199';
+const isDev = !app.isPackaged && process.env.DASHI_DEV === '1';
+const DEV_URL = process.env.DASHI_DEV_URL ?? 'http://127.0.0.1:5199';
 
 let mainWindow: BrowserWindow | null = null;
 let core: AppCore | null = null;
@@ -39,9 +39,9 @@ if (!gotLock) {
 }
 
 function getDataDir(): string {
-  const override = process.env.MOJIAN_DATA_DIR;
+  const override = process.env.DASHI_DATA_DIR;
   if (override) return path.resolve(override);
-  if (process.env.MOJIAN_PORTABLE === '1') {
+  if (process.env.DASHI_PORTABLE === '1') {
     return path.join(path.dirname(app.getPath('exe')), 'data');
   }
   return app.getPath('userData');
@@ -202,7 +202,7 @@ async function bootstrap(): Promise<void> {
     callback(permission === 'clipboard-sanitized-write' || permission === 'clipboard-read');
   });
 
-  app.setAppUserModelId('com.mojian.novelstudio');
+  app.setAppUserModelId('com.dashi.novelstudio');
 }
 
 app.whenReady().then(() => {

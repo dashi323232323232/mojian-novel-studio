@@ -47,7 +47,7 @@ export function buildAgentGuide(options: AgentGuideOptions): string {
     projectCount = 0;
   }
 
-  return `# 墨笺小说工作台 · Agent 接入文档
+  return `# 大师小说工作台 · Agent 接入文档
 
 > 版本：软件 ${APP_VERSION} · API ${API_VERSION}
 > 生成时间：${new Date().toLocaleString('zh-CN', { hour12: false })}
@@ -71,7 +71,7 @@ ${endpointPath}
 
 \`\`\`json
 {
-  "app": "墨笺小说工作台",
+  "app": "大师小说工作台",
   "appVersion": "${APP_VERSION}",
   "apiVersion": "${API_VERSION}",
   "baseUrl": "${baseUrl}",
@@ -104,7 +104,7 @@ ${endpointPath}
 - 除 \`/health\`、\`/version\`、\`/openapi.json\`、\`/agent-guide\` 外，所有接口都必须携带令牌。
 - 令牌错误或缺失返回 \`401 UNAUTHORIZED\`。
 - 跨站来源（浏览器 Origin 非本机、Sec-Fetch-Site: cross-site）返回 \`403 FORBIDDEN\`。
-- 可通过请求头 \`X-Mojian-Actor: 你的Agent名称\` 标记调用方，日志会记录该名称，便于用户审计。
+- 可通过请求头 \`X-Dashi-Actor: 你的Agent名称\` 标记调用方，日志会记录该名称，便于用户审计。
 
 ---
 
@@ -277,7 +277,7 @@ ${RETENTION_NOTE}
 
 ${opsTable()}
 
-> 完整参数类型、必填规则与示例见 OpenAPI 定义：\`GET ${baseUrl}/api/v1/openapi.json\`。高危接口标有 \`x-mojian-destructive: true\`。
+> 完整参数类型、必填规则与示例见 OpenAPI 定义：\`GET ${baseUrl}/api/v1/openapi.json\`。高危接口标有 \`x-dashi-destructive: true\`。
 
 ---
 
@@ -289,7 +289,7 @@ ${opsTable()}
 
 \`\`\`bash
 # 用户数据目录中的服务发现文件（Windows 默认路径如下）
-cat "$APPDATA/墨笺小说工作台/api-endpoint.json"
+cat "$APPDATA/大师小说工作台/api-endpoint.json"
 \`\`\`
 
 \`\`\`bash
@@ -303,7 +303,7 @@ AUTH="Authorization: Bearer $TOKEN"
 \`\`\`bash
 curl -s -X POST "$BASE/api/v1/projects" \\
   -H "$AUTH" -H "Content-Type: application/json" \\
-  -H "X-Mojian-Actor: MyNovelAgent" \\
+  -H "X-Dashi-Actor: MyNovelAgent" \\
   -d '{"name":"普法战争","description":"1870 年的故事","genre":"历史小说"}'
 \`\`\`
 
@@ -526,7 +526,7 @@ ${Object.entries(ERROR_CODES)
 
 ## 10. 数据位置与备份
 
-- 数据库：\`${dataDir}\\mojian.db\`（SQLite，WAL 模式，事务写入）
+- 数据库：\`${dataDir}\\dashi.db\`（SQLite，WAL 模式，事务写入）
 - 音频文件：\`${dataDir}\\audio\\<projectId>\\\`
 - 备份：\`${dataDir}\\backups\\\`（自动备份 + 手动备份，保留最近 20 份）
 - 服务发现：\`${endpointPath}\`

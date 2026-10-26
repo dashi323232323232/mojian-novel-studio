@@ -32,7 +32,7 @@ export class AppCore {
 
   constructor(dataDir: string) {
     this.dataDir = dataDir;
-    this.dbPath = path.join(dataDir, 'mojian.db');
+    this.dbPath = path.join(dataDir, 'dashi.db');
     this.db = createDatabase(this.dbPath);
     const ctx: ServiceContext = {
       db: this.db,
@@ -65,7 +65,7 @@ export class AppCore {
 
   info() {
     return {
-      name: '墨笺小说工作台',
+      name: '大师小说工作台',
       appVersion: APP_VERSION,
       apiVersion: API_VERSION,
       dataDir: this.dataDir,

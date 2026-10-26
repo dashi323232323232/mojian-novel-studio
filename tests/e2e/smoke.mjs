@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '../..');
 
-const DATA_DIR = process.env.MOJIAN_DATA_DIR || path.join(os.tmpdir(), `mojian-e2e-${Date.now()}`);
+const DATA_DIR = process.env.DASHI_DATA_DIR || path.join(os.tmpdir(), `dashi-e2e-${Date.now()}`);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const results = [];
@@ -17,7 +17,7 @@ function record(name, ok, detail = '') {
 }
 
 async function main() {
-  const env = { ...process.env, MOJIAN_DATA_DIR: DATA_DIR, MOJIAN_PORTABLE: '0' };
+  const env = { ...process.env, DASHI_DATA_DIR: DATA_DIR, DASHI_PORTABLE: '0' };
   delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({
     args: [root],

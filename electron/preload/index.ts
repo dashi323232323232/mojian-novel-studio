@@ -121,6 +121,6 @@ const api = {
   },
 };
 
-contextBridge.exposeInMainWorld('mojian', api);
+contextBridge.exposeInMainWorld('dashi', api);
 
-export type MojianApi = typeof api;
+export type DashiApi = typeof api;

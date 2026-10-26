@@ -157,7 +157,7 @@ interface RawApi {
 
 declare global {
   interface Window {
-    mojian: RawApi;
+    dashi: RawApi;
   }
 }
 
@@ -180,10 +180,10 @@ export async function unwrap<T>(promise: Promise<Result<T>>): Promise<T> {
 }
 
 export function getApi(): RawApi {
-  if (typeof window === 'undefined' || !window.mojian) {
+  if (typeof window === 'undefined' || !window.dashi) {
     throw new Error('预加载脚本未就绪，请通过桌面应用启动。');
   }
-  return window.mojian;
+  return window.dashi;
 }
 
 export function errorMessage(err: unknown): string {

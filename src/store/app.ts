@@ -28,7 +28,7 @@ interface AppStore {
   bumpStructure: () => void;
 }
 
-const STORAGE_KEY = 'mojian.ui.nav.v1';
+const STORAGE_KEY = 'dashi.ui.nav.v1';
 
 function loadExpanded(): Record<string, boolean> {
   try {

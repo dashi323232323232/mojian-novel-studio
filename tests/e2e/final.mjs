@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const DATA_DIR = process.env.MOJIAN_DATA_DIR || path.join(os.tmpdir(), `mojian-e2e-final-${Date.now()}`);
+const DATA_DIR = process.env.DASHI_DATA_DIR || path.join(os.tmpdir(), `dashi-e2e-final-${Date.now()}`);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const results = [];
 const record = (name, ok, detail = '') => {
@@ -12,7 +12,7 @@ const record = (name, ok, detail = '') => {
 };
 
 async function launch() {
-  const env = { ...process.env, MOJIAN_DATA_DIR: DATA_DIR };
+  const env = { ...process.env, DASHI_DATA_DIR: DATA_DIR };
   delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({ args: [path.resolve('.')], env, timeout: 60000 });
   const win = await app.firstWindow();
@@ -85,7 +85,7 @@ async function main() {
   await win.waitForTimeout(300);
   await win.click('.menu-item:has-text("移动到其他阶段")');
   await win.waitForTimeout(400);
-  await win.click('.modal button:has-text("移动到此阶段末尾")');
+  await win.locator('.modal button:has-text("移动到此阶段末尾"):not([disabled])').first().click();
   await win.waitForTimeout(800);
   const stageBlocks = await win.locator('.stage-block').count();
   record('阶段数量正确（2 个阶段）', stageBlocks >= 2, String(stageBlocks));

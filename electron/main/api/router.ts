@@ -105,7 +105,7 @@ export class ApiRouter {
       () => ({
         ok: true,
         status: 'running',
-        app: '墨笺小说工作台',
+        app: '大师小说工作台',
         appVersion: APP_VERSION,
         apiVersion: API_VERSION,
         time: new Date().toISOString(),
@@ -121,7 +121,7 @@ export class ApiRouter {
       (ctx) => ({
         appVersion: APP_VERSION,
         apiVersion: API_VERSION,
-        name: '墨笺小说工作台',
+        name: '大师小说工作台',
         platform: process.platform,
         node: process.versions.node,
         electron: process.versions.electron,

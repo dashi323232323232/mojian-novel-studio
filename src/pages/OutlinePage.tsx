@@ -213,7 +213,7 @@ export function OutlinePage({
                   className="palette-item"
                   draggable
                   onDragStart={(e) => {
-                    e.dataTransfer.setData('application/x-mojian-node', key);
+                    e.dataTransfer.setData('application/x-dashi-node', key);
                     e.dataTransfer.effectAllowed = 'copy';
                   }}
                   onClick={() => createNode(key as NodeType)}

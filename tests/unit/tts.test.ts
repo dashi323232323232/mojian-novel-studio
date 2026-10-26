@@ -16,13 +16,13 @@ describe('Windows SAPI 语音适配器', () => {
   });
 
   test('能真实合成 WAV 文件并可解析时长', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mojian-tts-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashi-tts-'));
     const out = path.join(dir, 'sample.wav');
     const voices = await provider.listVoices();
     const zh = voices.find((v) => v.locale.startsWith('zh')) ?? voices[0];
     const progress: number[] = [];
     const result = await provider.synthesize({
-      text: '墨笺小说工作台，语音合成测试。',
+      text: '大师小说工作台，语音合成测试。',
       voiceId: zh.id,
       rate: 0,
       volume: 100,
@@ -39,7 +39,7 @@ describe('Windows SAPI 语音适配器', () => {
   });
 
   test('无效声音回退到默认声音仍能生成', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mojian-tts2-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashi-tts2-'));
     const out = path.join(dir, 'fallback.wav');
     const result = await provider.synthesize({
       text: '回退测试。',

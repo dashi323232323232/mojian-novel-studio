@@ -1,17 +1,29 @@
 #!/usr/bin/env bash
-# 墨笺小说工作台 —— 双版本提交工具
-# 只保留「当前版本」和「上一个版本」两个 git 提交：
-#   每次提交后把更早的提交压缩进根提交（squash），
-#   仓库永远只有两个提交：上一个版本 + 当前版本。
-# 用法： bash scripts/version-commit.sh "提交说明"
+# 大师小说工作台 —— 版本提交工具
+#
+# 规则（按用户要求）：
+#   1. 本地 Git 只保留「当前版本」和「上一个版本」两个提交，历史更早的提交会被压缩；
+#   2. GitHub 上保留全部版本：每次提交时把该版本快照推成一个独立分支
+#      release/<版本号> 并打同名标签，GitHub 侧永久保留；
+#   3. 推送时只推送 main 与新增的版本分支/标签，不改变本地历史长度。
+#
+# 用法：
+#   bash scripts/version-commit.sh "提交说明" [版本号，例如 v1.0.0]
 set -euo pipefail
 
 MSG="${1:-更新版本}"
+VERSION="${2:-}"
 cd "$(dirname "$0")/.."
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "当前目录不是 git 仓库" >&2
   exit 1
+fi
+
+if [ -z "$VERSION" ]; then
+  BASE=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.0.0")
+  N=$(git tag --list "v${BASE}-*" | wc -l | tr -d ' ')
+  VERSION="v${BASE}-$((N + 1))"
 fi
 
 git add -A
@@ -22,9 +34,15 @@ fi
 
 git commit -q -m "$MSG"
 
+# ---- 1) 归档到 GitHub：每个版本一个分支 + 标签 ----
+SNAPSHOT=$(git rev-parse HEAD)
+ARCHIVE_BRANCH="release/${VERSION}"
+git branch -f "$ARCHIVE_BRANCH" "$SNAPSHOT"
+git tag -f "$VERSION" "$SNAPSHOT" >/dev/null 2>&1 || true
+
+# ---- 2) 本地只保留两个提交：把 HEAD~1 之外的旧历史压缩掉 ----
 COUNT=$(git rev-list --count HEAD)
 if [ "$COUNT" -gt 2 ]; then
-  # 重建一条只有两个提交的链：上一个版本（无父提交）+ 当前版本
   PREV_TREE=$(git rev-parse 'HEAD~1^{tree}')
   HEAD_TREE=$(git rev-parse 'HEAD^{tree}')
   NEW_PREV=$(git commit-tree "$PREV_TREE" -m "上一版本快照")
@@ -32,9 +50,22 @@ if [ "$COUNT" -gt 2 ]; then
   BRANCH=$(git rev-parse --abbrev-ref HEAD)
   git reset -q --hard "$NEW_HEAD"
   git branch -f "$BRANCH" "$NEW_HEAD"
+  # 归档分支与标签指向的旧提交需要保留，仅清理 reflog
   git reflog expire --expire=now --all
-  git gc --prune=now -q
 fi
 
-echo "当前提交历史（只保留最新与上一个版本）："
+# ---- 3) 推送到 GitHub ----
+REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+if [ -n "$REMOTE_URL" ]; then
+  echo "正在推送 main 与归档分支 ${ARCHIVE_BRANCH} …"
+  git push -f origin "HEAD:refs/heads/main" 2>&1 | tail -2 || echo "推送 main 失败（可稍后手动重试）"
+  git push -f origin "refs/heads/${ARCHIVE_BRANCH}:refs/heads/${ARCHIVE_BRANCH}" 2>&1 | tail -2 || echo "推送归档分支失败"
+  git push -f origin "refs/tags/${VERSION}" 2>&1 | tail -2 || echo "推送标签失败"
+fi
+
+echo
+echo "本地提交历史（只保留最新与上一个版本）："
 git --no-pager log --oneline -n 5
+echo
+echo "GitHub 归档版本（全部保留）："
+git --no-pager tag --list | sort -V | tail -20

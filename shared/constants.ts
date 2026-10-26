@@ -9,8 +9,8 @@ export const APP_VERSION = '1.0.0';
 export const API_VERSION = 'v1';
 export const API_PREFIX = '/api/v1';
 export const DEFAULT_API_PORT = 45871;
-export const APP_DISPLAY_NAME = '墨笺小说工作台';
-export const APP_ID = 'com.mojian.novelstudio';
+export const APP_DISPLAY_NAME = '大师小说工作台';
+export const APP_ID = 'com.dashi.novelstudio';
 
 export const NODE_TYPE_META: Record<
   NodeType,
