@@ -47,25 +47,28 @@ if [ "$COUNT" -gt 2 ]; then
   HEAD_TREE=$(git rev-parse 'HEAD^{tree}')
   NEW_PREV=$(git commit-tree "$PREV_TREE" -m "上一版本快照")
   NEW_HEAD=$(git commit-tree "$HEAD_TREE" -p "$NEW_PREV" -m "$MSG")
-  BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  # git reset --hard 会同时移动当前分支指针，无需再 branch -f
   git reset -q --hard "$NEW_HEAD"
-  git branch -f "$BRANCH" "$NEW_HEAD"
-  # 归档分支与标签指向的旧提交需要保留，仅清理 reflog
   git reflog expire --expire=now --all
 fi
 
-# ---- 3) 推送到 GitHub ----
+# ---- 3) 推送到 GitHub：先推送归档分支/标签，再清理本地归档引用 ----
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
 if [ -n "$REMOTE_URL" ]; then
   echo "正在推送 main 与归档分支 ${ARCHIVE_BRANCH} …"
   git push -f origin "HEAD:refs/heads/main" 2>&1 | tail -2 || echo "推送 main 失败（可稍后手动重试）"
   git push -f origin "refs/heads/${ARCHIVE_BRANCH}:refs/heads/${ARCHIVE_BRANCH}" 2>&1 | tail -2 || echo "推送归档分支失败"
   git push -f origin "refs/tags/${VERSION}" 2>&1 | tail -2 || echo "推送标签失败"
+
+  # GitHub 已保存完整版本，本地删除归档分支与标签，保证本地只有两个提交
+  git branch -D "$ARCHIVE_BRANCH" >/dev/null 2>&1 || true
+  git tag -d "$VERSION" >/dev/null 2>&1 || true
+  git gc --prune=now -q 2>/dev/null || true
 fi
 
 echo
 echo "本地提交历史（只保留最新与上一个版本）："
 git --no-pager log --oneline -n 5
 echo
-echo "GitHub 归档版本（全部保留）："
-git --no-pager tag --list | sort -V | tail -20
+echo "GitHub 归档版本（全部保留，可用 git ls-remote --tags origin 查看）："
+git ls-remote --tags origin 2>/dev/null | sed 's#.*refs/tags/#  #' | sort -V | tail -20 || true
