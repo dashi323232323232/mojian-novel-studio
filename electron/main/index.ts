@@ -167,7 +167,7 @@ async function bootstrap(): Promise<void> {
     if (action === 'new-project' || action === 'save-chapter' || action === 'open-agent') {
       mainWindow.webContents.send('app:menuAction', action);
     }
-  });
+  }, dataDir);
 
   registerIpc({
     core,

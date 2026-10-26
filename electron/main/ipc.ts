@@ -388,7 +388,11 @@ export function registerIpc(deps: IpcDeps): void {
   );
 }
 
-export function buildMenu(win: BrowserWindow, onAction: (action: string) => void): void {
+export function buildMenu(
+  win: BrowserWindow,
+  onAction: (action: string) => void,
+  dataDir: string,
+): void {
   const send = (action: string) => () => {
     if (!win.isDestroyed()) win.webContents.send('app:menuAction', action);
   };
@@ -399,7 +403,7 @@ export function buildMenu(win: BrowserWindow, onAction: (action: string) => void
         { label: '新建项目', accelerator: 'CmdOrCtrl+N', click: send('new-project') },
         { type: 'separator' },
         { label: '保存当前章节', accelerator: 'CmdOrCtrl+S', click: send('save-chapter') },
-        { label: '打开数据目录', click: () => void shell.openPath(path.dirname(win.webContents.getURL() ? '' : '')) },
+        { label: '打开数据目录', click: () => void shell.openPath(dataDir) },
         { type: 'separator' },
         { role: 'quit', label: '退出' },
       ],

@@ -325,8 +325,11 @@ export function ChapterEditor({
     if (dirtyRef.current) {
       const ok = await doSave({ silent: true });
       if (!ok) {
-        toast.error('当前章节保存失败，已取消切换');
-        return;
+        // 保存失败：明确让用户选择保存 / 放弃 / 取消，而不是静默取消
+        const decision = await new Promise<boolean>((resolve) => {
+          setLeavePrompt({ resolve });
+        });
+        if (!decision) return;
       }
     }
     onSwitchChapter(chapterId);
