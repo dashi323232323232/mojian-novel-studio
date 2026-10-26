@@ -253,9 +253,20 @@ export function LinkWorkspace({
                 if (!id) return;
                 if (!(await confirmLeave())) return;
                 onSelectNode(id);
-                const first = snapshot.links.find((l) => l.nodeId === id);
-                if (first && first.chapterId !== chapterId) onSelectChapter(first.chapterId);
-                else if (!first) toast.warn('该节点还没有关联章节，右侧仍显示当前章节。');
+                const linked = snapshot.links.filter((l) => l.nodeId === id).map((l) => l.chapterId);
+                if (linked.length === 0) {
+                  toast.warn('该节点还没有关联章节，右侧仍显示当前章节。');
+                  return;
+                }
+                // 当前章节已关联到该节点时保持不动；只有唯一关联章节时才自动切换；
+                // 多个章节时必须由用户在章节列表中明确选择，不擅自随机选择。
+                if (linked.includes(chapterId)) return;
+                if (linked.length === 1) {
+                  onSelectChapter(linked[0]);
+                } else {
+                  setPickerOpen(true);
+                  toast.info(`该节点关联 ${linked.length} 个章节，请在列表中选择要编辑的章节。`);
+                }
               }}
               onSnapshotChange={setSnapshot}
               onOpenChapter={async (cid, nid) => {
