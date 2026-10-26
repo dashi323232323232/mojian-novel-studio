@@ -129,6 +129,10 @@ interface RawApi {
     updateNode(nodeId: string, patch: OutlineNodePatch): Promise<Result<OutlineNode>>;
     deleteNode(nodeId: string, options: { confirm: boolean }): Promise<Result<unknown>>;
     duplicateNode(nodeId: string): Promise<Result<OutlineNode>>;
+    generateStructure(
+      projectId: string,
+    ): Promise<Result<{ createdStageNodes: number; createdChapterNodes: number; createdEdges: number }>>;
+    reconcileBindings(projectId: string): Promise<Result<{ bound: number }>>;
     updatePositions(
       projectId: string,
       positions: Array<{ id: string; x: number; y: number; width?: number; height?: number }>,

@@ -112,6 +112,8 @@ export const api = {
     unwrap(getApi().outline.updateNode(nodeId, patch)),
   deleteNode: (nodeId: string) => unwrap(getApi().outline.deleteNode(nodeId, { confirm: true })),
   duplicateNode: (nodeId: string): Promise<OutlineNode> => unwrap(getApi().outline.duplicateNode(nodeId)),
+  generateStructure: (projectId: string) => unwrap(getApi().outline.generateStructure(projectId)),
+  reconcileBindings: (projectId: string) => unwrap(getApi().outline.reconcileBindings(projectId)),
   updatePositions: (
     projectId: string,
     positions: Array<{ id: string; x: number; y: number; width?: number; height?: number }>,

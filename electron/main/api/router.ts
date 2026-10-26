@@ -385,6 +385,12 @@ export class ApiRouter {
     });
     this.add(
       'POST',
+      '/api/v1/projects/:projectId/outline/generate',
+      (ctx) => c.outline.generateStructure(ctx.params.projectId),
+      { summary: '按章节结构自动生成阶段/章节节点与顺序连线' },
+    );
+    this.add(
+      'POST',
       '/api/v1/projects/:projectId/outline/reconcile-bindings',
       (ctx) => c.outline.reconcileBindings(ctx.params.projectId),
       { summary: '按名称自动绑定阶段/章节节点' },
@@ -540,6 +546,23 @@ export class ApiRouter {
       destructive: true,
       summary: '删除音频任务及文件',
     });
+
+    // ---------------- 导出 ----------------
+    this.add(
+      'POST',
+      '/api/v1/projects/:projectId/export/chapters',
+      (ctx) => {
+        const body = asObject(ctx.body);
+        const chapterIds = asArray(body.chapterIds);
+        return {
+          export: c.projects.exportChapters(ctx.params.projectId, chapterIds, {
+            includeStageHeaders: body.includeStageHeaders !== false,
+            fileName: typeof body.fileName === 'string' ? body.fileName : undefined,
+          }),
+        };
+      },
+      { summary: '导出所选章节为 TXT 文件' },
+    );
 
     // ---------------- 搜索与设置 ----------------
     this.add(

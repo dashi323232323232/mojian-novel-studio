@@ -77,6 +77,8 @@ const api = {
     updateNode: (nodeId: string, patch: unknown) => ipcRenderer.invoke('outline:updateNode', nodeId, patch),
     deleteNode: (nodeId: string, options: unknown) => ipcRenderer.invoke('outline:deleteNode', nodeId, options),
     duplicateNode: (nodeId: string) => ipcRenderer.invoke('outline:duplicateNode', nodeId),
+    generateStructure: (projectId: string) => ipcRenderer.invoke('outline:generateStructure', projectId),
+    reconcileBindings: (projectId: string) => ipcRenderer.invoke('outline:reconcileBindings', projectId),
     updatePositions: (projectId: string, positions: unknown) =>
       ipcRenderer.invoke('outline:updatePositions', projectId, positions),
     createEdge: (projectId: string, input: unknown) => ipcRenderer.invoke('outline:createEdge', projectId, input),

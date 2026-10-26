@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { Database } from '../db/database';
 import type { SettingsService } from './settings';
 import type { ChangeBus } from '../events';
@@ -243,6 +245,77 @@ export class ProjectService {
         createdAt: c.created_at,
         updatedAt: c.updated_at,
       })),
+    };
+  }
+
+  /**
+   * 导出所选章节为纯文本（供本地 API 使用）。
+   * 文件写入数据目录的 exports/ 下，返回可读的绝对路径。
+   */
+  exportChapters(
+    projectId: string,
+    chapterIds: string[],
+    options: { includeStageHeaders?: boolean; fileName?: string } = {},
+  ): { filePath: string; fileName: string; chapterCount: number; wordCount: number; bytes: number } {
+    const structure = this.structure(projectId);
+    const ids = Array.isArray(chapterIds) ? chapterIds : [];
+    if (!ids.length) throw validationError('chapterIds 不能为空');
+    const chosen = structure.chapters.filter((c) => ids.includes(c.id));
+    if (!chosen.length) throw notFound('所选章节不存在');
+    const stageOrder = structure.stages.map((s) => s.id);
+    const grouped = new Map<string | null, typeof chosen>();
+    for (const c of chosen) {
+      const key = c.stageId ?? null;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(c);
+    }
+    const keys = [...grouped.keys()].sort((a, b) => {
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return stageOrder.indexOf(a) - stageOrder.indexOf(b);
+    });
+    const parts: string[] = [];
+    for (const key of keys) {
+      const list = grouped.get(key)!;
+      const stage = structure.stages.find((s) => s.id === key);
+      if (options.includeStageHeaders !== false) {
+        parts.push('\n\n========== ' + (stage?.name ?? '未分阶段') + ' ==========\n');
+        if (stage?.summary) parts.push(stage.summary + '\n');
+      }
+      for (const chapter of list) {
+        const content = this.ctx.db.get<{ content: string }>(
+          'SELECT content FROM chapter_contents WHERE chapter_id = ?',
+          chapter.id,
+        );
+        parts.push('\n\n' + chapter.name + '\n');
+        if (chapter.summary) parts.push('【简介】' + chapter.summary + '\n');
+        parts.push('\n');
+        parts.push(content?.content || '（本章暂无正文）');
+      }
+    }
+    const header =
+      structure.project.name +
+      '\n导出时间：' +
+      new Date().toLocaleString('zh-CN') +
+      '\n共 ' +
+      chosen.length +
+      ' 章\n';
+    const text = header + parts.join('') + '\n';
+
+    const exportsDir = path.join(this.ctx.dataDir, 'exports');
+    fs.mkdirSync(exportsDir, { recursive: true });
+    const safeName = (options.fileName || structure.project.name + '-' + Date.now())
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .slice(0, 80);
+    const fileName = safeName.endsWith('.txt') ? safeName : safeName + '.txt';
+    const filePath = path.join(exportsDir, fileName);
+    fs.writeFileSync(filePath, text, 'utf8');
+    return {
+      filePath,
+      fileName,
+      chapterCount: chosen.length,
+      wordCount: chosen.reduce((sum, c) => sum + c.wordCount, 0),
+      bytes: Buffer.byteLength(text, 'utf8'),
     };
   }
 

@@ -17,3 +17,5 @@ coverage/
 .env.local
 tests/e2e/last-*.json
 debug-launch.mjs
+tests/e2e/shots/
+tests/e2e/last-*.json

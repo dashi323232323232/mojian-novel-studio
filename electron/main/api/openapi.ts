@@ -1098,6 +1098,42 @@ const ops: OpDef[] = [
 
   // 设置
   {
+    method: 'post',
+    path: '/api/v1/projects/{projectId}/export/chapters',
+    operationId: 'exportChapters',
+    summary: '导出所选章节为 TXT 文件',
+    description:
+      '把所选章节按阶段顺序合并导出为纯文本，包含阶段标题、阶段简介、章节名、章节简介与正文。文件写入数据目录的 exports/ 子目录，返回绝对路径。',
+    tags: ['项目'],
+    params: [param('projectId', '项目 ID')],
+    body: jsonBody('#/components/schemas/ExportChaptersInput', {
+      chapterIds: ['chp_1', 'chp_2'],
+      includeStageHeaders: true,
+      fileName: '普法战争-节选.txt',
+    }),
+    responseDescription: '导出结果',
+    responseExample: {
+      export: {
+        filePath: '%APPDATA%\大师小说工作台\exports\普法战争-节选.txt',
+        fileName: '普法战争-节选.txt',
+        chapterCount: 2,
+        wordCount: 6400,
+        bytes: 19200,
+      },
+    },
+  },
+  {
+    method: 'post',
+    path: '/api/v1/projects/{projectId}/outline/generate',
+    operationId: 'generateOutlineFromStructure',
+    summary: '按章节结构自动生成大纲节点与连线',
+    description: '为每个阶段创建「故事阶段」节点、每个章节创建「具体章节」节点，并建立阶段→章节的先后顺序连线。只新增缺失内容，不删除现有节点。',
+    tags: ['大纲'],
+    params: [param('projectId', '项目 ID')],
+    responseDescription: '新增数量',
+    responseExample: { createdStageNodes: 2, createdChapterNodes: 5, createdEdges: 5 },
+  },
+  {
     method: 'get',
     path: '/api/v1/settings',
     operationId: 'getSettings',
@@ -1358,6 +1394,15 @@ const schemas: Record<string, Json> = {
       provider: { type: 'string', enum: ['sapi', 'openai'], default: 'sapi' },
       rate: { type: 'integer', minimum: -10, maximum: 10, default: 0 },
       volume: { type: 'integer', minimum: 0, maximum: 100, default: 100 },
+    },
+  },
+  ExportChaptersInput: {
+    type: 'object',
+    required: ['chapterIds'],
+    properties: {
+      chapterIds: { type: 'array', items: { type: 'string' }, minItems: 1 },
+      includeStageHeaders: { type: 'boolean', default: true },
+      fileName: { type: 'string', description: '可选文件名（自动补 .txt）' },
     },
   },
   PreviewVoiceInput: {

@@ -219,7 +219,21 @@ ${RETENTION_NOTE}
 
 连线类型 \`relation\`：\`sequence\`（先后）、\`causal\`（因果）、\`parallel\`（并行）、\`setup\`（伏笔埋设）、\`payoff\`（伏笔回收）、\`relation\`（人物关系）、\`custom\`（自定义）。
 
-### 3.7 关联 NodeChapterLink
+### 3.7 导出 Export
+
+\`\`\`json
+{
+  "filePath": "C:\Users\me\AppData\Roaming\大师小说工作台\exports\普法战争-节选.txt",
+  "fileName": "普法战争-节选.txt",
+  "chapterCount": 2,
+  "wordCount": 6400,
+  "bytes": 19200
+}
+\`\`\`
+
+导出文件写入数据目录的 \`exports/\` 子目录，内容包含阶段标题、阶段简介、章节名、章节简介与正文。
+
+### 3.8 关联 NodeChapterLink
 
 \`\`\`json
 { "nodeId": "nod_...", "chapterId": "chp_...", "createdAt": "2026-10-27T00:00:00.000Z" }
@@ -227,7 +241,7 @@ ${RETENTION_NOTE}
 
 多对多：一个节点可关联多个章节，一个章节也可关联多个节点。
 
-### 3.8 伏笔 Foreshadow
+### 3.9 伏笔 Foreshadow
 
 \`\`\`json
 {
@@ -252,7 +266,7 @@ ${RETENTION_NOTE}
 
 状态 \`status\`：\`planned\`（计划中）、\`planted\`（已埋设）、\`developing\`（正在推进）、\`resolved\`（已回收）、\`abandoned\`（已废弃）。
 
-### 3.9 音频任务 AudioJob
+### 3.10 音频任务 AudioJob
 
 \`\`\`json
 {
@@ -411,7 +425,20 @@ curl -s -X POST "$BASE/api/v1/projects/$PROJECT/foreshadows" \\
   -d '{"name":"染血的军旗","status":"planted","plantedChapterId":"'"$CHAPTER"'","chapterIds":["'"$CHAPTER"'"],"nodeId":"'"$NODE"'","notes":"决战时回收"}'
 \`\`\`
 
-### 步骤 10：完整检查
+### 步骤 10：导出所选章节为 TXT
+
+\`\`\`bash
+curl -s -X POST "$BASE/api/v1/projects/$PROJECT/export/chapters"   -H "$AUTH" -H "Content-Type: application/json"   -d '{"chapterIds":["'"$CHAPTER"'"],"includeStageHeaders":true,"fileName":"节选.txt"}'
+\`\`\`
+
+### 步骤 11：按章节结构自动生成大纲
+
+\`\`\`bash
+curl -s -X POST "$BASE/api/v1/projects/$PROJECT/outline/generate" -H "$AUTH"
+# => {"createdStageNodes":2,"createdChapterNodes":5,"createdEdges":5}
+\`\`\`
+
+### 步骤 12：完整检查
 
 \`\`\`bash
 curl -s "$BASE/api/v1/projects/$PROJECT/structure" -H "$AUTH"
@@ -421,7 +448,14 @@ curl -s "$BASE/api/v1/projects/$PROJECT/foreshadows" -H "$AUTH"
 
 ---
 
-## 6. 音频任务示例
+## 6. 简介同步与备注
+
+- 章节 \`summary\` 与大纲 \`type=chapter\` 节点（\`data.chapterId\` 绑定）的 \`description\` **双向同步**；阶段 \`summary\` 与 \`type=stage\` 节点同理。
+- 任一入口修改，另一处立即生效；无需额外调用同步接口。
+- 节点 \`notes\` 为不限字数备注，可用 \`PATCH\` 写入，或 \`POST /api/v1/outline/nodes/{nodeId}/clear-notes\` 一键清空。
+- 删除大纲节点**不会**删除真实章节或正文，仅移除画布节点与连线。
+
+## 7. 音频任务示例
 
 ### 6.1 查询声音（先确认服务已配置）
 
@@ -450,7 +484,7 @@ curl -s "$BASE/api/v1/audio/jobs/$JOB" -H "$AUTH"
 
 ---
 
-## 7. 错误码与处理
+## 8. 错误码与处理
 
 | HTTP | 错误码 | 含义 | 处理建议 |
 | --- | --- | --- | --- |
@@ -497,7 +531,7 @@ ${Object.entries(ERROR_CODES)
 
 ---
 
-## 8. 如何检查操作是否成功
+## 9. 如何检查操作是否成功
 
 - 所有成功响应为 HTTP 200，并包含实际操作结果（新对象、保存结果或删除标记）。
 - 写操作建议采用「写入 → 读取校验」：
@@ -509,7 +543,7 @@ ${Object.entries(ERROR_CODES)
 
 ---
 
-## 9. 数据安全与危险操作
+## 10. 数据安全与危险操作
 
 ### 9.1 默认安全策略
 
@@ -531,7 +565,7 @@ ${Object.entries(ERROR_CODES)
 
 ---
 
-## 10. 数据位置与备份
+## 11. 数据位置与备份
 
 - 数据库：\`${dataDir}\\dashi.db\`（SQLite，WAL 模式，事务写入）
 - 音频文件：\`${dataDir}\\audio\\<projectId>\\\`
@@ -542,7 +576,7 @@ ${Object.entries(ERROR_CODES)
 
 ---
 
-## 11. 快速自检清单
+## 12. 快速自检清单
 
 - [ ] \`GET /api/v1/health\` 返回 \`ok: true\`
 - [ ] 携带令牌访问 \`GET /api/v1/projects\` 返回 \`projects\`
@@ -550,6 +584,9 @@ ${Object.entries(ERROR_CODES)
 - [ ] 创建章节并写入正文后，软件打开该章节能看到内容
 - [ ] 创建大纲节点与关联后，软件大纲页能看到节点与章节列表
 - [ ] 删除类接口在未开启高危开关时返回 403
+- [ ] 修改章节简介后，绑定该章的大纲节点 description 同步变化
+- [ ] 节点备注可写入超长文本，并可用 clear-notes 清空
+- [ ] 导出接口返回存在的 txt 文件路径
 
 > 如果任何接口返回 404，请访问 \`GET ${baseUrl}/api/v1/openapi.json\` 核对路径；文档与实现不一致时以 OpenAPI 为准，并请向用户反馈。
 `;

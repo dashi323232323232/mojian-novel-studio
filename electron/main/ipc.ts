@@ -365,6 +365,14 @@ export function registerIpc(deps: IpcDeps): void {
   );
   ipcMain.handle('outline:duplicateNode', wrap((_e, nodeId: string) => core.outline.duplicateNode(nodeId)));
   ipcMain.handle(
+    'outline:generateStructure',
+    wrap((_e, projectId: string) => core.outline.generateStructure(projectId)),
+  );
+  ipcMain.handle(
+    'outline:reconcileBindings',
+    wrap((_e, projectId: string) => core.outline.reconcileBindings(projectId)),
+  );
+  ipcMain.handle(
     'outline:updatePositions',
     wrap((_e, projectId: string, positions: any) => core.outline.updatePositions(projectId, positions)),
   );

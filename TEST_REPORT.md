@@ -1,6 +1,6 @@
 # 测试报告
 
-**软件**：大师小说工作台 1.1.0（API v1）
+**软件**：大师小说工作台 1.2.0（API v1）
 **测试时间**：2026-10-27
 **测试环境**：Windows 11 x64 · Node.js 24.20 · Electron 45.0.0
 **数据目录**：临时隔离目录（每个测试集独立，互不污染）
@@ -16,6 +16,7 @@
 | 3 | `tests/unit/summary-sync.test.ts` | 简介双向同步 / 备注 / 绑定 | 9 | 9 | 0 |
 | 4 | `tests/api/api.test.ts` | HTTP API 集成测试 | 22 | 22 | 0 |
 | 5 | `tests/api/features-v2.test.ts` | 新增字段与接口 | 8 | 8 | 0 |
+| 5b | `tests/api/export-generate.test.ts` | 导出与结构生成接口 | 7 | 7 | 0 |
 | 6 | `tests/e2e/smoke.mjs` | 桌面端冒烟 | 15 | 15 | 0 |
 | 7 | `tests/e2e/link-and-guard.mjs` | 联动工作区与离开保护 | 11 | 11 | 0 |
 | 8 | `tests/e2e/advanced.mjs` | 长文本 / 重启 / 画布 / 音频 | 20 | 20 | 0 |
@@ -25,7 +26,8 @@
 | 12 | `tests/e2e/data-move.mjs` | 数据目录迁移与重启 | 5 | 5 | 0 |
 | 13 | `tests/e2e/packed.mjs` | 打包版验收（基础） | 9 | 9 | 0 |
 | 14 | `tests/e2e/packed-v2.mjs` | 打包版验收（新功能） | 7 | 7 | 0 |
-| **合计** | | | **164** | **164** | **0** |
+| 15 | `tests/e2e/generate-structure.mjs` | 一键生成大纲结构 | 5 | 5 | 0 |
+| **合计** | | | **176** | **176** | **0** |
 
 ---
 
@@ -74,7 +76,26 @@
 | 单章右键菜单「导出本章为 TXT」 | ✅ |
 | 保存对话框可自由选择位置 | ✅ |
 
-### 2.5 数据存储位置可更改
+### 2.5 一键生成大纲结构
+
+| 场景 | 结果 |
+| --- | --- |
+| 大纲「从内容生成结构」按钮 | ✅ |
+| 为每个阶段生成「故事阶段」节点（左列） | ✅ 2 个 |
+| 为每个章节生成「具体章节」节点（右列） | ✅ 3 个 |
+| 自动建立阶段 → 章节的先后顺序连线 | ✅ 3 条 |
+| 重复点击不重复创建 | ✅ 5 → 5 节点 |
+| 生成的章节节点自动绑定真实章节与简介 | ✅ |
+
+### 2.6 HTTP 导出接口
+
+| 场景 | 结果 |
+| --- | --- |
+| `POST /api/v1/projects/{id}/export/chapters` | ✅ 生成 txt 并返回绝对路径 |
+| 导出内容含阶段标题/简介/章节名/简介/正文 | ✅ |
+| 空 chapterIds 返回 400 | ✅ |
+
+### 2.7 数据存储位置可更改
 
 | 场景 | 结果 |
 | --- | --- |
@@ -209,17 +230,14 @@ env -u ELECTRON_RUN_AS_NODE node tests/e2e/packed-v2.mjs
 
 ---
 
-## 六、截图
+## 六、测试截图
 
-| 文件 | 内容 |
-| --- | --- |
-| `tests/e2e/shots/20-editor-summary.png` | 编辑器章节简介框 |
-| `tests/e2e/shots/21-export-select.png` | 勾选导出模式 |
-| `tests/e2e/shots/22-chapter-node-notes.png` | 具体章节节点、备注、绑定 |
-| `tests/e2e/shots/23-data-location.png` | 数据存储位置设置 |
-| `tests/e2e/shots/24-packed-v2.png` | 打包版新功能 |
-| `tests/e2e/shots/01-welcome.png` | 欢迎页 |
-| `tests/e2e/shots/05-outline.png` | 图形化大纲 |
-| `tests/e2e/shots/09-link.png` | 大纲-正文联动 |
-| `tests/e2e/shots/13-audio-done.png` | 音频生成完成 |
-| `tests/e2e/shots/16-settings.png` | 设置与备份 |
+测试截图属于开发过程产物，已在交付前清理以节省磁盘空间。如需重新生成：
+
+```bash
+npm run build
+env -u ELECTRON_RUN_AS_NODE node tests/e2e/smoke.mjs      # 生成基础界面截图
+env -u ELECTRON_RUN_AS_NODE node tests/e2e/features-v2.mjs # 生成新功能截图
+```
+
+截图输出目录：`tests/e2e/shots/`（已加入 `.gitignore` 之外的临时目录，可随时删除）。

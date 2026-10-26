@@ -301,6 +301,129 @@ export class OutlineService {
     return this.getNode(nodeId);
   }
 
+  /**
+   * 按内容页的真实结构生成/补齐大纲：
+   * 阶段节点（左列）→ 章节节点（右列），并建立「先后顺序」连线。
+   * 只新增缺失的节点与连线，不删除任何现有内容。
+   */
+  generateStructure(projectId: string): {
+    createdStageNodes: number;
+    createdChapterNodes: number;
+    createdEdges: number;
+  } {
+    this.assertProject(projectId);
+    const stages = this.ctx.db.all<{ id: string; name: string; summary: string; sort_order: number }>(
+      'SELECT id, name, summary, sort_order FROM stages WHERE project_id = ? ORDER BY sort_order ASC',
+      projectId,
+    );
+    const chapters = this.ctx.db.all<{
+      id: string;
+      name: string;
+      summary: string;
+      stage_id: string | null;
+      sort_order: number;
+    }>(
+      'SELECT id, name, summary, stage_id, sort_order FROM chapters WHERE project_id = ? ORDER BY sort_order ASC',
+      projectId,
+    );
+    const ts = nowIso();
+    let createdStageNodes = 0;
+    let createdChapterNodes = 0;
+    let createdEdges = 0;
+
+    this.ctx.db.transaction(() => {
+      const stageNodeByStage = new Map<string, string>();
+      const existingStageNodes = this.ctx.db.all<{ id: string; stage_id: string | null }>(
+        "SELECT id, stage_id FROM outline_nodes WHERE project_id = ? AND type = 'stage' AND stage_id IS NOT NULL",
+        projectId,
+      );
+      for (const n of existingStageNodes) if (n.stage_id) stageNodeByStage.set(n.stage_id, n.id);
+
+      stages.forEach((stage, index) => {
+        if (stageNodeByStage.has(stage.id)) return;
+        const id = makeId('nod');
+        this.ctx.db.run(
+          `INSERT INTO outline_nodes (id, project_id, type, title, description, notes, stage_id, chapter_id, x, y, width, height, color, data, created_at, updated_at)
+           VALUES (?, ?, 'stage', ?, ?, '', ?, NULL, ?, ?, 250, 128, NULL, ?, ?, ?)`,
+          id,
+          projectId,
+          stage.name,
+          stage.summary ?? '',
+          stage.id,
+          80,
+          90 + index * 220,
+          JSON.stringify({ stageId: stage.id, goal: '' }),
+          ts,
+          ts,
+        );
+        stageNodeByStage.set(stage.id, id);
+        createdStageNodes++;
+      });
+
+      const chapterNodeByChapter = new Map<string, string>();
+      const existingChapterNodes = this.ctx.db.all<{ id: string; chapter_id: string | null }>(
+        "SELECT id, chapter_id FROM outline_nodes WHERE project_id = ? AND type = 'chapter' AND chapter_id IS NOT NULL",
+        projectId,
+      );
+      for (const n of existingChapterNodes) if (n.chapter_id) chapterNodeByChapter.set(n.chapter_id, n.id);
+
+      const rowByStage = new Map<string | null, number>();
+      for (const chapter of chapters) {
+        const key = chapter.stage_id ?? null;
+        const row = rowByStage.get(key) ?? 0;
+        rowByStage.set(key, row + 1);
+        if (chapterNodeByChapter.has(chapter.id)) continue;
+        const id = makeId('nod');
+        this.ctx.db.run(
+          `INSERT INTO outline_nodes (id, project_id, type, title, description, notes, stage_id, chapter_id, x, y, width, height, color, data, created_at, updated_at)
+           VALUES (?, ?, 'chapter', ?, ?, '', NULL, ?, ?, ?, 230, 116, NULL, ?, ?, ?)`,
+          id,
+          projectId,
+          chapter.name,
+          chapter.summary ?? '',
+          chapter.id,
+          640,
+          90 + row * 170,
+          JSON.stringify({ chapterId: chapter.id }),
+          ts,
+          ts,
+        );
+        chapterNodeByChapter.set(chapter.id, id);
+        createdChapterNodes++;
+      }
+
+      for (const chapter of chapters) {
+        if (!chapter.stage_id) continue;
+        const from = stageNodeByStage.get(chapter.stage_id);
+        const to = chapterNodeByChapter.get(chapter.id);
+        if (!from || !to) continue;
+        const exists = this.ctx.db.get<{ id: string }>(
+          "SELECT id FROM outline_edges WHERE source_id = ? AND target_id = ? AND relation = 'sequence'",
+          from,
+          to,
+        );
+        if (exists) continue;
+        this.ctx.db.run(
+          `INSERT INTO outline_edges (id, project_id, source_id, target_id, relation, label, description, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'sequence', '', '', ?, ?)`,
+          makeId('edg'),
+          projectId,
+          from,
+          to,
+          ts,
+          ts,
+        );
+        createdEdges++;
+      }
+
+      // 顺便把节点位置持久化标记项目更新
+      this.ctx.db.run('UPDATE projects SET updated_at = ? WHERE id = ?', ts, projectId);
+    });
+
+    this.ctx.changes.emitChange({ scope: 'outline', projectId, action: 'structure.generate' });
+    return { createdStageNodes, createdChapterNodes, createdEdges };
+  }
+
   /** 批量把未绑定的阶段/章节节点自动绑定到同名实体（迁移与新建时使用）。 */
   reconcileBindings(projectId: string): { bound: number } {
     this.assertProject(projectId);

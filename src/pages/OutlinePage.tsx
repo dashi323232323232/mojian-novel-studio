@@ -16,6 +16,7 @@ import {
   ListTree,
   PanelLeftClose,
   PanelLeftOpen,
+  Wand2,
 } from 'lucide-react';
 import type { Foreshadow, NodeType, OutlineSnapshot, ProjectStructure } from '@shared/types';
 import { NODE_TYPE_META, EDGE_RELATION_META } from '@shared/constants';
@@ -77,6 +78,7 @@ export function OutlinePage({
   const [deleteTarget, setDeleteTarget] = useState<OutlineNode | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [viewport, setViewport] = useState<{ x: number; y: number; zoom: number } | null>(null);
   const canvasHandle = useRef<OutlineCanvasHandle | null>(null);
   const viewportSaveTimer = useRef<number | null>(null);
@@ -113,6 +115,30 @@ export function OutlinePage({
 
   const createNode = (type: NodeType) => {
     setPendingCreate({ type, nonce: Date.now() });
+  };
+
+  /** 按内容页的阶段/章节自动生成画布结构（阶段 → 章节，并连线） */
+  const generateFromContent = async () => {
+    if (!structure.stages.length && !structure.chapters.length) {
+      toast.warn('内容页还没有阶段或章节，请先创建。');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const result = await api.generateStructure(projectId);
+      await reloadSnapshot();
+      if (result.createdStageNodes || result.createdChapterNodes || result.createdEdges) {
+        toast.success(
+          `已生成 ${result.createdStageNodes} 个阶段节点、${result.createdChapterNodes} 个章节节点、${result.createdEdges} 条连线`,
+        );
+      } else {
+        toast.info('结构已是最新，没有需要新增的节点或连线。');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '生成结构失败');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const confirmDelete = async () => {
@@ -184,6 +210,9 @@ export function OutlinePage({
               <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)' }}>{foreshadows.length}</span>
             </button>
           </div>
+          <button className="btn btn-sm" onClick={() => void generateFromContent()} disabled={generating} title="按内容页的阶段与章节自动生成节点和顺序连线">
+            {generating ? <span className="spinner" /> : <Wand2 size={13} />} 从内容生成结构
+          </button>
           <button className="btn btn-sm" onClick={() => canvasHandle.current?.fitView()}>
             <Maximize2 size={13} /> 适应画布
           </button>

@@ -3,7 +3,7 @@
   "info": {
     "title": "大师小说工作台 本地 API",
     "version": "v1",
-    "description": "大师小说工作台 1.1.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
+    "description": "大师小说工作台 1.2.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
     "contact": {
       "name": "大师小说工作台",
       "url": "https://localhost/"
@@ -89,7 +89,7 @@
                   "ok": true,
                   "status": "running",
                   "app": "大师小说工作台",
-                  "appVersion": "1.1.0",
+                  "appVersion": "1.2.0",
                   "apiVersion": "v1",
                   "database": "ok"
                 }
@@ -137,7 +137,7 @@
                   "additionalProperties": true
                 },
                 "example": {
-                  "appVersion": "1.1.0",
+                  "appVersion": "1.2.0",
                   "apiVersion": "v1",
                   "name": "大师小说工作台",
                   "endpoints": {
@@ -3825,6 +3825,143 @@
         }
       }
     },
+    "/api/v1/projects/{projectId}/export/chapters": {
+      "post": {
+        "operationId": "exportChapters",
+        "summary": "导出所选章节为 TXT 文件",
+        "tags": [
+          "项目"
+        ],
+        "description": "把所选章节按阶段顺序合并导出为纯文本，包含阶段标题、阶段简介、章节名、章节简介与正文。文件写入数据目录的 exports/ 子目录，返回绝对路径。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "请求体",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportChaptersInput"
+              },
+              "example": {
+                "chapterIds": [
+                  "chp_1",
+                  "chp_2"
+                ],
+                "includeStageHeaders": true,
+                "fileName": "普法战争-节选.txt"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "导出结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "export": {
+                    "filePath": "%APPDATA%大师小说工作台exports普法战争-节选.txt",
+                    "fileName": "普法战争-节选.txt",
+                    "chapterCount": 2,
+                    "wordCount": 6400,
+                    "bytes": 19200
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/outline/generate": {
+      "post": {
+        "operationId": "generateOutlineFromStructure",
+        "summary": "按章节结构自动生成大纲节点与连线",
+        "tags": [
+          "大纲"
+        ],
+        "description": "为每个阶段创建「故事阶段」节点、每个章节创建「具体章节」节点，并建立阶段→章节的先后顺序连线。只新增缺失内容，不删除现有节点。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "新增数量",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "example": {
+                  "createdStageNodes": 2,
+                  "createdChapterNodes": 5,
+                  "createdEdges": 5
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/settings": {
       "get": {
         "operationId": "getSettings",
@@ -5202,6 +5339,29 @@
           }
         }
       },
+      "ExportChaptersInput": {
+        "type": "object",
+        "required": [
+          "chapterIds"
+        ],
+        "properties": {
+          "chapterIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "includeStageHeaders": {
+            "type": "boolean",
+            "default": true
+          },
+          "fileName": {
+            "type": "string",
+            "description": "可选文件名（自动补 .txt）"
+          }
+        }
+      },
       "PreviewVoiceInput": {
         "type": "object",
         "required": [
@@ -5369,6 +5529,6 @@
     }
   },
   "x-dashi-api-version": "v1",
-  "x-dashi-app-version": "1.1.0",
+  "x-dashi-app-version": "1.2.0",
   "x-dashi-discovery": "用户数据目录/api-endpoint.json 中的 baseUrl 字段"
 }
