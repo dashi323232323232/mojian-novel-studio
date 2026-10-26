@@ -89,7 +89,7 @@ export function ChapterEditor({
   /** 同步主进程脏状态：关窗时主进程会先询问渲染层，避免未保存内容丢失。 */
   const syncWindowDirty = (value: boolean) => {
     try {
-      window.mojian?.app?.setDirty(value);
+      window.dashi?.app?.setDirty(value);
     } catch {
       /* 非桌面环境忽略 */
     }

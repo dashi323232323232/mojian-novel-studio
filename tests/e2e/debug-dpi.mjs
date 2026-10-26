@@ -1,6 +1,6 @@
 import { _electron as electron } from 'playwright-core';
 import path from 'node:path';
-const env = { ...process.env, MOJIAN_DATA_DIR: 'E:/小说编辑器/tmp-debug-node' };
+const env = { ...process.env, DASHI_DATA_DIR: 'E:/小说编辑器/tmp-debug-node' };
 delete env.ELECTRON_RUN_AS_NODE;
 const app = await electron.launch({ args: [path.resolve('.')], env, timeout: 60000 });
 const win = await app.firstWindow();

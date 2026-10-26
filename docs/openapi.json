@@ -1,11 +1,11 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "墨笺小说工作台 本地 API",
+    "title": "大师小说工作台 本地 API",
     "version": "v1",
-    "description": "墨笺小说工作台 1.0.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
+    "description": "大师小说工作台 1.0.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
     "contact": {
-      "name": "墨笺小说工作台",
+      "name": "大师小说工作台",
       "url": "https://localhost/"
     },
     "license": {
@@ -88,7 +88,7 @@
                 "example": {
                   "ok": true,
                   "status": "running",
-                  "app": "墨笺小说工作台",
+                  "app": "大师小说工作台",
                   "appVersion": "1.0.0",
                   "apiVersion": "v1",
                   "database": "ok"
@@ -139,7 +139,7 @@
                 "example": {
                   "appVersion": "1.0.0",
                   "apiVersion": "v1",
-                  "name": "墨笺小说工作台",
+                  "name": "大师小说工作台",
                   "endpoints": {
                     "openapi": "/api/v1/openapi.json",
                     "agentGuide": "/api/v1/agent-guide"
@@ -654,8 +654,8 @@
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "x-mojian-destructive": true,
-        "x-mojian-confirmation": "需要用户开启「允许高危操作」并显式确认"
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
       }
     },
     "/api/v1/projects/{projectId}/structure": {
@@ -979,8 +979,8 @@
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "x-mojian-destructive": true,
-        "x-mojian-confirmation": "需要用户开启「允许高危操作」并显式确认"
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
       }
     },
     "/api/v1/projects/{projectId}/stages/reorder": {
@@ -1363,8 +1363,8 @@
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "x-mojian-destructive": true,
-        "x-mojian-confirmation": "需要用户开启「允许高危操作」并显式确认"
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
       }
     },
     "/api/v1/chapters/{chapterId}/move": {
@@ -2233,8 +2233,8 @@
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "x-mojian-destructive": true,
-        "x-mojian-confirmation": "需要用户开启「允许高危操作」并显式确认"
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
       }
     },
     "/api/v1/outline/nodes/{nodeId}/duplicate": {
@@ -3227,8 +3227,8 @@
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "x-mojian-destructive": true,
-        "x-mojian-confirmation": "需要用户开启「允许高危操作」并显式确认"
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
       }
     },
     "/api/v1/foreshadows/{foreshadowId}/attach-outline": {
@@ -3666,8 +3666,8 @@
             "$ref": "#/components/responses/InternalError"
           }
         },
-        "x-mojian-destructive": true,
-        "x-mojian-confirmation": "需要用户开启「允许高危操作」并显式确认"
+        "x-dashi-destructive": true,
+        "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
       }
     },
     "/api/v1/audio/jobs/{jobId}/cancel": {
@@ -5217,7 +5217,7 @@
       }
     }
   },
-  "x-mojian-api-version": "v1",
-  "x-mojian-app-version": "1.0.0",
-  "x-mojian-discovery": "用户数据目录/api-endpoint.json 中的 baseUrl 字段"
+  "x-dashi-api-version": "v1",
+  "x-dashi-app-version": "1.0.0",
+  "x-dashi-discovery": "用户数据目录/api-endpoint.json 中的 baseUrl 字段"
 }

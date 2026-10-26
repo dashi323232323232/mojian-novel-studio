@@ -38,7 +38,7 @@ export class EndpointFileService {
   write(port: number): EndpointFile {
     const baseUrl = `http://${HOST}:${port}`;
     const payload: EndpointFile = {
-      app: '墨笺小说工作台',
+      app: '大师小说工作台',
       appVersion: APP_VERSION,
       apiVersion: API_VERSION,
       baseUrl,

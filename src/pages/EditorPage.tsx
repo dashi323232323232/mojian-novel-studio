@@ -11,7 +11,7 @@ export function EditorPage({ structure }: { structure: ProjectStructure }) {
   const chapter = structure.chapters.find((c) => c.id === active.chapterId);
   const [settings, setSettings] = useState(() => {
     try {
-      const cached = localStorage.getItem('mojian.editor.settings');
+      const cached = localStorage.getItem('dashi.editor.settings');
       if (cached) return JSON.parse(cached) as { fontSize: number; lineHeight: number; fontFamily: 'serif' | 'sans'; autoSave: boolean; showWordCount: boolean };
     } catch {
       /* ignore */

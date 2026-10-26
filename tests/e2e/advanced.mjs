@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const DATA_DIR = process.env.MOJIAN_DATA_DIR || path.join(os.tmpdir(), `mojian-e2e-adv-${Date.now()}`);
+const DATA_DIR = process.env.DASHI_DATA_DIR || path.join(os.tmpdir(), `dashi-e2e-adv-${Date.now()}`);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const results = [];
 const record = (name, ok, detail = '') => {
@@ -12,7 +12,7 @@ const record = (name, ok, detail = '') => {
 };
 
 async function launch() {
-  const env = { ...process.env, MOJIAN_DATA_DIR: DATA_DIR };
+  const env = { ...process.env, DASHI_DATA_DIR: DATA_DIR };
   delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({ args: [path.resolve('.')], env, timeout: 60000 });
   const win = await app.firstWindow();

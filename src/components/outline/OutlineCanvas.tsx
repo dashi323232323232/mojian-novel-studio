@@ -395,13 +395,13 @@ export function OutlineCanvas({
         onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
         onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('application/x-mojian-node')) {
+          if (e.dataTransfer.types.includes('application/x-dashi-node')) {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'copy';
           }
         }}
         onDrop={(e) => {
-          const raw = e.dataTransfer.getData('application/x-mojian-node');
+          const raw = e.dataTransfer.getData('application/x-dashi-node');
           if (!raw) return;
           e.preventDefault();
           const type = raw as NodeType;

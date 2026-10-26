@@ -50,7 +50,7 @@ export function SettingsPage() {
     try {
       const saved = await api.updateSettings({ editor: next.editor });
       setSettings(saved);
-      localStorage.setItem('mojian.editor.settings', JSON.stringify(saved.editor));
+      localStorage.setItem('dashi.editor.settings', JSON.stringify(saved.editor));
       toast.success('编辑器设置已保存');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '保存设置失败');

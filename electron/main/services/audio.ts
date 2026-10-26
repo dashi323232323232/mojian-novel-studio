@@ -394,7 +394,7 @@ export class AudioService {
     const voices = await provider.listVoices();
     const voice = voices.find((v) => v.id === input.voiceId);
     if (!voice) throw validationError(`声音「${input.voiceId}」不存在`);
-    const text = (input.text ?? '这是墨笺小说工作台的试听样本。愿你的故事，从这里开始。').slice(0, 200);
+    const text = (input.text ?? '这是大师小说工作台的试听样本。愿你的故事，从这里开始。').slice(0, 200);
     const fileName = `preview-${Date.now()}.${providerId === 'openai' ? 'mp3' : 'wav'}`;
     const filePath = path.join(this.audioDir(projectId), fileName);
     const result = await provider.synthesize({

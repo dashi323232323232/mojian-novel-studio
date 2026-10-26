@@ -298,7 +298,7 @@ const ops: OpDef[] = [
     responseExample: {
       ok: true,
       status: 'running',
-      app: '墨笺小说工作台',
+      app: '大师小说工作台',
       appVersion: APP_VERSION,
       apiVersion: API_VERSION,
       database: 'ok',
@@ -316,7 +316,7 @@ const ops: OpDef[] = [
     responseExample: {
       appVersion: APP_VERSION,
       apiVersion: API_VERSION,
-      name: '墨笺小说工作台',
+      name: '大师小说工作台',
       endpoints: { openapi: '/api/v1/openapi.json', agentGuide: '/api/v1/agent-guide' },
     },
   },
@@ -1369,7 +1369,7 @@ function buildPaths(): Json {
       ...(op.body ? { requestBody: op.body } : {}),
       responses: responses(op.responseDescription, op.responseExample),
       ...(op.destructive
-        ? { 'x-mojian-destructive': true, 'x-mojian-confirmation': '需要用户开启「允许高危操作」并显式确认' }
+        ? { 'x-dashi-destructive': true, 'x-dashi-confirmation': '需要用户开启「允许高危操作」并显式确认' }
         : {}),
     };
     (paths[op.path] as Json)[op.method] = operation;
@@ -1381,15 +1381,15 @@ export function buildOpenApiSpec(baseUrl = 'http://127.0.0.1:45871'): Json {
   return {
     openapi: '3.1.0',
     info: {
-      title: '墨笺小说工作台 本地 API',
+      title: '大师小说工作台 本地 API',
       version: API_VERSION,
       description: [
-        `墨笺小说工作台 ${APP_VERSION} 的本地 HTTP API。`,
+        `大师小说工作台 ${APP_VERSION} 的本地 HTTP API。`,
         '默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。',
         '章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。',
         '服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。',
       ].join('\n'),
-      contact: { name: '墨笺小说工作台', url: 'https://localhost/' },
+      contact: { name: '大师小说工作台', url: 'https://localhost/' },
       license: { name: 'MIT' },
     },
     servers: [
@@ -1475,9 +1475,9 @@ export function buildOpenApiSpec(baseUrl = 'http://127.0.0.1:45871'): Json {
         },
       },
     },
-    'x-mojian-api-version': API_VERSION,
-    'x-mojian-app-version': APP_VERSION,
-    'x-mojian-discovery': '用户数据目录/api-endpoint.json 中的 baseUrl 字段',
+    'x-dashi-api-version': API_VERSION,
+    'x-dashi-app-version': APP_VERSION,
+    'x-dashi-discovery': '用户数据目录/api-endpoint.json 中的 baseUrl 字段',
   };
 }
 

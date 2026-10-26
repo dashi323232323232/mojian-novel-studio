@@ -41,7 +41,7 @@ export function AudioPage({ projectId, structure }: Props) {
   const [creating, setCreating] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [config, setConfig] = useState<AudioProviderConfigPublic | null>(null);
-  const [previewText, setPreviewText] = useState('这是墨笺小说工作台的试听样本。');
+  const [previewText, setPreviewText] = useState('这是大师小说工作台的试听样本。');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewInfo, setPreviewInfo] = useState<string>('');
   const [previewing, setPreviewing] = useState(false);

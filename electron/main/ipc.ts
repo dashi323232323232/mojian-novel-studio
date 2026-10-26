@@ -437,12 +437,12 @@ export function buildMenu(win: BrowserWindow, onAction: (action: string) => void
           click: send('open-agent'),
         },
         {
-          label: '关于墨笺小说工作台',
+          label: '关于大师小说工作台',
           click: () => {
             void dialog.showMessageBox(win, {
               type: 'info',
               title: '关于',
-              message: '墨笺小说工作台',
+              message: '大师小说工作台',
               detail: `版本 ${app.getVersion()}\n数据目录：${depsPath()}`,
             });
           },

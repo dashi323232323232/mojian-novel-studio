@@ -106,7 +106,7 @@ try {
 `;
 
 function writeTempScript(content: string): string {
-  const dir = path.join(process.env.TEMP || process.env.TMP || '.', 'mojian-tts');
+  const dir = path.join(process.env.TEMP || process.env.TMP || '.', 'dashi-tts');
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `synth-${process.pid}-${Date.now()}.ps1`);
   // PowerShell 5 读取带 BOM 的 UTF-8 才稳定识别中文；脚本本身只含 ASCII 参数名。
@@ -154,7 +154,7 @@ export class SapiTtsProvider implements TtsProvider {
       throw new NovelError('PROVIDER_NOT_CONFIGURED', '当前系统不支持 Windows 本地语音，请配置在线语音服务。', 400);
     }
     fs.mkdirSync(path.dirname(req.outputPath), { recursive: true });
-    const dir = path.join(process.env.TEMP || '.', 'mojian-tts');
+    const dir = path.join(process.env.TEMP || '.', 'dashi-tts');
     fs.mkdirSync(dir, { recursive: true });
     const textFile = path.join(dir, `text-${process.pid}-${Date.now()}.txt`);
     fs.writeFileSync(textFile, req.text, 'utf8');

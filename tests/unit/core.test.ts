@@ -6,7 +6,7 @@ import path from 'node:path';
 import { AppCore } from '../../electron/main/core';
 
 function makeCore(): { core: AppCore; dir: string } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mojian-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashi-test-'));
   const core = new AppCore(dir);
   return { core, dir };
 }

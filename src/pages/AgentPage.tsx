@@ -371,7 +371,7 @@ export function AgentPage() {
                 </div>
                 <div className="code-block" style={{ fontSize: 11 }}>
 {`# 1. 读取服务地址（端口可能变化，勿写死）
-type "$env:APPDATA\\墨笺小说工作台\\api-endpoint.json"
+type "$env:APPDATA\\大师小说工作台\\api-endpoint.json"
 
 # 2. 健康检查（无需令牌）
 curl ${status?.baseUrl ?? 'http://127.0.0.1:45871'}/api/v1/health
@@ -391,7 +391,7 @@ curl ${status?.baseUrl ?? 'http://127.0.0.1:45871'}/api/v1/projects \\
                     className="btn btn-sm"
                     onClick={async () => {
                       try {
-                        const result = await api.exportText('mojian-agent-guide.md', guide);
+                        const result = await api.exportText('dashi-agent-guide.md', guide);
                         if (!result.canceled) toast.success('Agent 文档已导出');
                       } catch (err) {
                         toast.error(err instanceof Error ? err.message : '导出失败');
@@ -439,7 +439,7 @@ curl ${status?.baseUrl ?? 'http://127.0.0.1:45871'}/api/v1/projects \\
                     onClick={async () => {
                       try {
                         const spec = await api.openapi();
-                        const result = await api.exportText('mojian-openapi.json', JSON.stringify(spec, null, 2));
+                        const result = await api.exportText('dashi-openapi.json', JSON.stringify(spec, null, 2));
                         if (!result.canceled) toast.success('OpenAPI 文件已导出');
                       } catch (err) {
                         toast.error(err instanceof Error ? err.message : '导出失败');
@@ -519,7 +519,7 @@ curl ${status?.baseUrl ?? 'http://127.0.0.1:45871'}/api/v1/projects \\
               className="btn btn-primary"
               onClick={async () => {
                 try {
-                  const result = await api.exportText('mojian-openapi.json', openapi);
+                  const result = await api.exportText('dashi-openapi.json', openapi);
                   if (!result.canceled) toast.success('已导出 openapi.json');
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : '导出失败');
