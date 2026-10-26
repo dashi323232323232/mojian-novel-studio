@@ -50,6 +50,7 @@ interface RawApi {
     showItemInFolder(path: string): Promise<Result<unknown>>;
     setDirty(dirty: boolean): void;
     closeConfirmed(): void;
+    cancelClose(): void;
     backups(): Promise<Result<{ backups: BackupInfo[] }>>;
     createBackup(): Promise<Result<BackupInfo>>;
     restoreBackup(fileName: string): Promise<Result<{ restored: boolean; safetyBackup: BackupInfo; message: string }>>;

@@ -21,6 +21,10 @@ async function launch() {
   await win.waitForSelector('.sidebar', { timeout: 25000 });
   await win.waitForTimeout(900);
   return { app, win };
+  await win.evaluate(() => {
+    localStorage.setItem('dashi.editor.settings', JSON.stringify({ fontSize: 18, lineHeight: 1.9, fontFamily: 'serif', autoSave: true, showWordCount: true }));
+  });
+
 }
 
 async function main() {
@@ -46,8 +50,17 @@ async function main() {
   await win.waitForTimeout(800);
   await win.click('.cm-content');
   await win.keyboard.type('打包后的应用可以正常写作。', { delay: 2 });
-  await win.waitForTimeout(2000);
-  record('打包版自动保存', /已保存/.test(await win.locator('.save-state').first().innerText()));
+  // 等待自动保存（1.2s 防抖 + 写盘）完成；保存状态位于顶部工具栏
+  let autoSaved = false;
+  for (let i = 0; i < 24; i++) {
+    await win.waitForTimeout(500);
+    const label = await win.locator('.save-state').first().innerText().catch(() => '');
+    if (label.includes('已保存')) {
+      autoSaved = true;
+      break;
+    }
+  }
+  record('打包版自动保存', autoSaved);
   await win.screenshot({ path: 'tests/e2e/shots/18-packed-editor.png' });
 
   // 大纲

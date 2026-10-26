@@ -12,6 +12,7 @@ const api = {
     showItemInFolder: (path: string) => ipcRenderer.invoke('app:showItemInFolder', path),
     setDirty: (dirty: boolean) => ipcRenderer.send('app:setDirty', dirty),
     closeConfirmed: () => ipcRenderer.send('app:closeConfirmed'),
+    cancelClose: () => ipcRenderer.send('app:cancelClose'),
     backups: () => ipcRenderer.invoke('app:backups'),
     createBackup: () => ipcRenderer.invoke('app:createBackup'),
     restoreBackup: (fileName: string) => ipcRenderer.invoke('app:restoreBackup', fileName),

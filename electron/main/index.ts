@@ -24,6 +24,7 @@ let api: ApiServer | null = null;
 let endpoint: EndpointFileService | null = null;
 let dirty = false;
 let closingConfirmed = false;
+let closeRequestPending = false;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -132,9 +133,13 @@ function createWindow(): BrowserWindow {
 
   win.on('close', (event) => {
     if (closingConfirmed) return;
-    if (dirty) {
+    if (dirty || closeRequestPending) {
       event.preventDefault();
-      win.webContents.send('app:requestClose');
+      // 只询问一次，避免重复弹窗；用户确认后由渲染层调用 app:closeConfirmed
+      if (!closeRequestPending) {
+        closeRequestPending = true;
+        win.webContents.send('app:requestClose');
+      }
     }
   });
 
@@ -176,6 +181,11 @@ async function bootstrap(): Promise<void> {
     getWindow: () => mainWindow,
     markDirty: (value) => {
       dirty = value;
+      if (!value) closeRequestPending = false;
+    },
+    isDirty: () => dirty,
+    cancelClose: () => {
+      closeRequestPending = false;
     },
     requestClose: () => {
       closingConfirmed = true;

@@ -28,6 +28,12 @@ async function main() {
   await win.waitForLoadState('domcontentloaded');
   await win.waitForSelector('.sidebar', { timeout: 20000 });
   await win.waitForTimeout(1200);
+  await win.evaluate(() => {
+    localStorage.setItem('dashi.editor.settings', JSON.stringify({ fontSize: 18, lineHeight: 1.9, fontFamily: 'serif', autoSave: true, showWordCount: true }));
+  });
+  await win.reload();
+  await win.waitForSelector('.sidebar', { timeout: 20000 });
+  await win.waitForTimeout(900);
   await win.screenshot({ path: path.join(root, 'tests/e2e/shots/01-welcome.png') });
 
   // 1. 创建项目

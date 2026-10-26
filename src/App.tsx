@@ -158,6 +158,8 @@ export default function App() {
       if (ok) {
         window.dashi.app.setDirty(false);
         window.dashi.app.closeConfirmed();
+      } else {
+        window.dashi.app.cancelClose();
       }
     });
     return () => off?.();
