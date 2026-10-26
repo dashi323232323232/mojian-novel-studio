@@ -132,8 +132,10 @@ ${endpointPath}
 ### 3.2 阶段 Stage
 
 \`\`\`json
-{ "id": "stg_...", "projectId": "prj_...", "name": "第一阶段：战云密布", "sortOrder": 0, "chapterCount": 3, "wordCount": 12000 }
+{ "id": "stg_...", "projectId": "prj_...", "name": "第一阶段：战云密布", "summary": "战云密布，局势一触即发。", "sortOrder": 0, "chapterCount": 3, "wordCount": 12000 }
 \`\`\`
+
+- \`summary\` 是阶段简介，与大纲中绑定的故事阶段节点（\`type=stage\`）**双向同步**。
 
 ### 3.3 章节 Chapter
 
@@ -143,6 +145,7 @@ ${endpointPath}
   "projectId": "prj_...",
   "stageId": "stg_...",
   "name": "第一章 宣战",
+  "summary": "巴黎的夏天，宣战的消息传遍街头。",
   "sortOrder": 0,
   "wordCount": 3200,
   "contentUpdatedAt": "2026-10-27T00:10:00.000Z"
@@ -150,6 +153,7 @@ ${endpointPath}
 \`\`\`
 
 - 章节 ID 由服务端生成，与名称无关；重命名不会改变 ID。
+- \`summary\` 是章节简介，与大纲中绑定的具体章节节点（\`type=chapter\`）**双向同步**。创建时只需 \`name\`，简介可留空。
 - \`sortOrder\` 为全项目顺序，越小越靠前。
 
 ### 3.4 章节正文与版本
@@ -187,12 +191,15 @@ ${RETENTION_NOTE}
 }
 \`\`\`
 
+节点另有 \`notes\` 字段（备注，不限字数，可 \`PATCH notes=""\` 清空，或调用 \`POST /api/v1/outline/nodes/{nodeId}/clear-notes\`）。
+
 节点类型 \`type\`：
 
 | 值 | 含义 | data 常用字段 |
 | --- | --- | --- |
-| \`stage\` | 故事阶段 | \`goal\` |
+| \`stage\` | 故事阶段（可绑定真实阶段） | \`stageId\`、\`goal\` |
 | \`event\` | 剧情事件 | \`time\`、\`location\` |
+| \`chapter\` | 具体章节（可绑定真实章节） | \`chapterId\` |
 | \`character\` | 人物 | \`role\`、\`age\`、\`appearance\`、\`personality\` |
 | \`foreshadow\` | 伏笔 | \`foreshadowId\` |
 | \`note\` | 备注 / 普通文本 | \`notes\` |

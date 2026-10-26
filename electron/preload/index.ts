@@ -13,6 +13,10 @@ const api = {
     setDirty: (dirty: boolean) => ipcRenderer.send('app:setDirty', dirty),
     closeConfirmed: () => ipcRenderer.send('app:closeConfirmed'),
     cancelClose: () => ipcRenderer.send('app:cancelClose'),
+    dataLocation: () => ipcRenderer.invoke('app:dataLocation'),
+    chooseDataDir: (mode?: 'move' | 'switch') => ipcRenderer.invoke('app:chooseDataDir', mode),
+    moveDataDir: (target: string, options?: unknown) => ipcRenderer.invoke('app:moveDataDir', target, options),
+    resetDataDir: () => ipcRenderer.invoke('app:resetDataDir'),
     backups: () => ipcRenderer.invoke('app:backups'),
     createBackup: () => ipcRenderer.invoke('app:createBackup'),
     restoreBackup: (fileName: string) => ipcRenderer.invoke('app:restoreBackup', fileName),
@@ -34,6 +38,9 @@ const api = {
       ipcRenderer.on('app:requestClose', listener);
       return () => ipcRenderer.removeListener('app:requestClose', listener);
     },
+  },
+  export: {
+    chapters: (options: unknown) => ipcRenderer.invoke('export:chapters', options),
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),

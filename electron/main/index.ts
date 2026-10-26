@@ -6,6 +6,7 @@ import { AppCore } from './core';
 import { ApiServer } from './api/server';
 import { EndpointFileService, ensureToken } from './api/discovery';
 import { registerIpc, buildMenu } from './ipc';
+import { resolveDataDir } from './dataLocation';
 import { APP_DISPLAY_NAME, API_VERSION, APP_VERSION } from '@shared/constants';
 
 protocol.registerSchemesAsPrivileged([
@@ -40,12 +41,8 @@ if (!gotLock) {
 }
 
 function getDataDir(): string {
-  const override = process.env.DASHI_DATA_DIR;
-  if (override) return path.resolve(override);
-  if (process.env.DASHI_PORTABLE === '1') {
-    return path.join(path.dirname(app.getPath('exe')), 'data');
-  }
-  return app.getPath('userData');
+  // 支持用户自定义数据目录（写入 userData/data-location.json）
+  return resolveDataDir();
 }
 
 function registerMediaProtocol(dataDir: string): void {

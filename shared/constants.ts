@@ -5,7 +5,7 @@ import type {
   NodeType,
 } from './types';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 export const API_VERSION = 'v1';
 export const API_PREFIX = '/api/v1';
 export const DEFAULT_API_PORT = 45871;
@@ -31,6 +31,14 @@ export const NODE_TYPE_META: Record<
     bg: '#eaf2ff',
     border: '#bcd4ff',
     description: '推动剧情的关键事件，可按时间顺序连线。',
+  },
+  chapter: {
+    label: '具体章节',
+    short: '章节',
+    color: '#b02a6b',
+    bg: '#fdeef5',
+    border: '#f2c4dc',
+    description: '绑定内容页中的真实章节，简介与正文互通。',
   },
   character: {
     label: '人物',

@@ -230,7 +230,7 @@ export default function App() {
   } else if (!structure || !snapshot || !project) {
     content = <WelcomePage />;
   } else if (active.view === 'editor') {
-    content = <EditorPage structure={structure} />;
+    content = <EditorPage structure={structure} onStructureChanged={() => void reloadStructure()} />;
   } else if (active.view === 'outline' || active.view === 'link') {
     content = (
       <OutlinePage
@@ -241,6 +241,7 @@ export default function App() {
         foreshadows={foreshadows}
         reloadForeshadows={reloadForeshadows}
         reloadSnapshot={reloadSnapshot}
+        reloadStructure={reloadStructure}
         enterLink={(nodeId, chapterId) => void enterLink(nodeId, chapterId)}
         linkState={active.view === 'link' ? linkState ?? { nodeId: active.nodeId ?? '', chapterId: active.chapterId ?? '' } : null}
         exitLink={() => {

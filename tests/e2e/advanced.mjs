@@ -125,7 +125,7 @@ async function main() {
   await win.locator('.chapter-row').first().hover();
   await win.locator('.chapter-actions .menu-anchor button').first().click();
   await win.waitForTimeout(300);
-  await win.click('.menu-item:has-text("重命名 / 修改阶段")');
+  await win.click('.menu-item:has-text("编辑名称与简介")');
   await win.waitForSelector('.modal input.input');
   await win.fill('.modal input.input', '第一章 改名后');
   await win.click('.modal-foot .btn-primary');

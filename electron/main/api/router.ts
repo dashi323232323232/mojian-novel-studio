@@ -208,7 +208,12 @@ export class ApiRouter {
       '/api/v1/projects/:projectId/stages',
       (ctx) => {
         const body = asObject(ctx.body);
-        return { stage: c.structure.createStage(ctx.params.projectId, { name: asString(body.name) }) };
+        return {
+          stage: c.structure.createStage(ctx.params.projectId, {
+            name: asString(body.name),
+            summary: typeof body.summary === 'string' ? body.summary : '',
+          }),
+        };
       },
       { summary: '创建阶段' },
     );
@@ -261,6 +266,7 @@ export class ApiRouter {
         return {
           chapter: c.structure.createChapter(ctx.params.projectId, {
             name: asString(body.name),
+            summary: typeof body.summary === 'string' ? body.summary : '',
             stageId: typeof body.stageId === 'string' ? body.stageId : null,
             content: typeof body.content === 'string' ? body.content : '',
           }),
@@ -374,6 +380,15 @@ export class ApiRouter {
     this.add('POST', '/api/v1/outline/nodes/:nodeId/duplicate', (ctx) => ({ node: c.outline.duplicateNode(ctx.params.nodeId) }), {
       summary: '复制节点',
     });
+    this.add('POST', '/api/v1/outline/nodes/:nodeId/clear-notes', (ctx) => ({ node: c.outline.clearNotes(ctx.params.nodeId) }), {
+      summary: '清空节点备注',
+    });
+    this.add(
+      'POST',
+      '/api/v1/projects/:projectId/outline/reconcile-bindings',
+      (ctx) => c.outline.reconcileBindings(ctx.params.projectId),
+      { summary: '按名称自动绑定阶段/章节节点' },
+    );
     this.add(
       'POST',
       '/api/v1/projects/:projectId/outline/nodes/positions',

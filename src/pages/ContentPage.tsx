@@ -14,6 +14,10 @@ import {
   FileText,
   Layers,
   Copy,
+  Download,
+  CheckSquare,
+  Square,
+  X,
 } from 'lucide-react';
 import type { Chapter, Project, ProjectStructure, Stage } from '@shared/types';
 import { api } from '../lib/api';
@@ -53,6 +57,11 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // 勾选导出
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
+
   const chaptersByStage = useMemo(() => {
     const map = new Map<string, Chapter[]>();
     for (const stage of structure.stages) map.set(stage.id, []);
@@ -65,6 +74,7 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
   }, [structure]);
 
   const unassigned = chaptersByStage.get('__none__') ?? [];
+  const allChapterIds = useMemo(() => structure.chapters.map((c) => c.id), [structure.chapters]);
 
   // 搜索防抖
   useEffect(() => {
@@ -87,10 +97,10 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
     return () => window.clearTimeout(timer);
   }, [search, project.id]);
 
-  const createStage = async (name: string) => {
+  const createStage = async (name: string, summary: string) => {
     setBusy(true);
     try {
-      await api.createStage(project.id, name);
+      await api.createStage(project.id, name, summary);
       await reload();
       setStageModal(null);
       toast.success('阶段已创建');
@@ -101,24 +111,24 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
     }
   };
 
-  const renameStage = async (stage: Stage, name: string) => {
+  const renameStage = async (stage: Stage, name: string, summary: string) => {
     setBusy(true);
     try {
-      await api.renameStage(stage.id, name);
+      await api.renameStage(stage.id, name, summary);
       await reload();
       setStageModal(null);
-      toast.success('阶段已重命名');
+      toast.success('阶段已更新');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '重命名失败');
+      toast.error(err instanceof Error ? err.message : '保存阶段失败');
     } finally {
       setBusy(false);
     }
   };
 
-  const createChapter = async (name: string, stageId: string | null) => {
+  const createChapter = async (name: string, summary: string, stageId: string | null) => {
     setBusy(true);
     try {
-      const chapter = await api.createChapter(project.id, { name, stageId });
+      const chapter = await api.createChapter(project.id, { name, summary, stageId });
       await reload();
       setChapterModal(null);
       toast.success(`章节「${chapter.name}」已创建`);
@@ -130,11 +140,12 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
     }
   };
 
-  const renameChapter = async (chapter: Chapter, name: string, stageId: string) => {
+  const renameChapter = async (chapter: Chapter, name: string, summary: string, stageId: string) => {
     setBusy(true);
     try {
       await api.updateChapter(chapter.id, {
         name,
+        summary,
         stageId: stageId === '__none__' ? null : stageId,
       });
       await reload();
@@ -173,8 +184,6 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
       const reordered = [...siblings];
       const [item] = reordered.splice(index, 1);
       reordered.splice(target, 0, item);
-      const others = structure.chapters.filter((c) => (c.stageId ?? '__none__') !== (chapter.stageId ?? '__none__'));
-      // 全局顺序：保持其他阶段位置，只调整本阶段内部
       const globalOrder: string[] = [];
       const stageIdKey = chapter.stageId ?? '__none__';
       let cursor = 0;
@@ -236,11 +245,64 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
 
   const exportChapter = async (chapter: Chapter) => {
     try {
-      const data = await api.getContent(chapter.id);
-      const result = await api.exportText(`${chapter.name}.txt`, data.content);
-      if (!result.canceled) toast.success('章节已导出');
+      const result = await api.exportChapters({
+        projectId: project.id,
+        chapterIds: [chapter.id],
+        defaultName: `${chapter.name}.txt`,
+      });
+      if (!result.canceled) toast.success('章节已导出为 TXT');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '导出失败');
+    }
+  };
+
+  // ---------- 勾选导出 ----------
+  const toggleChapter = (chapterId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(chapterId)) next.delete(chapterId);
+      else next.add(chapterId);
+      return next;
+    });
+  };
+
+  const selectStage = (stageId: string, selectAll: boolean) => {
+    const ids = (chaptersByStage.get(stageId) ?? []).map((c) => c.id);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (selectAll) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAllChapters = () => setSelected(new Set(allChapterIds));
+  const clearSelection = () => setSelected(new Set());
+
+  const doExportSelected = async (ids: string[]) => {
+    if (!ids.length) {
+      toast.error('请至少选择一个章节');
+      return;
+    }
+    setExporting(true);
+    try {
+      const result = await api.exportChapters({
+        projectId: project.id,
+        chapterIds: ids,
+        includeStageHeaders: true,
+        defaultName: `${project.name}${ids.length === allChapterIds.length ? '（全书）' : ''}.txt`,
+      });
+      if (!result.canceled) {
+        toast.success(`已导出 ${result.chapterCount ?? ids.length} 章到 ${result.filePath}`);
+        setSelectMode(false);
+        clearSelection();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '导出失败');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -248,6 +310,8 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
     setAddMenuOpen(false);
     setChapterModal({ mode: 'create', defaultStageId: stageId ?? structure.stages[0]?.id ?? null });
   };
+
+  const exportSelectionCount = selected.size;
 
   return (
     <div className="page">
@@ -260,6 +324,11 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
           </span>
         </div>
         <div className="page-actions">
+          {!selectMode ? (
+            <button className="btn btn-sm" onClick={() => setSelectMode(true)} title="勾选章节或阶段导出为 TXT">
+              <Download size={13} /> 导出 TXT
+            </button>
+          ) : null}
           <div className="menu-anchor">
             <button className="floating-add" onClick={() => setAddMenuOpen((v) => !v)} title="新建章节或阶段">
               <Plus size={19} />
@@ -298,52 +367,91 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
       </div>
 
       <div className="content-toolbar">
-        <div className="search-box">
-          <Search size={14} />
-          <input
-            className="input"
-            placeholder="搜索章节名称或正文…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onFocus={() => searchHits.length && setSearchOpen(true)}
-          />
-          {searchOpen && search.trim() ? (
-            <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setSearchOpen(false)} aria-hidden />
-              <div className="search-results" style={{ zIndex: 45 }}>
-                {searching ? (
-                  <div style={{ padding: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>搜索中…</div>
-                ) : searchHits.length === 0 ? (
-                  <div style={{ padding: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>没有找到匹配内容</div>
-                ) : (
-                  searchHits.map((hit) => (
-                    <div
-                      key={`${hit.projectId}-${hit.chapterId}`}
-                      className="search-hit"
-                      onClick={() => {
-                        setSearchOpen(false);
-                        onOpenChapter(hit.chapterId);
-                      }}
-                    >
-                      <div className="t">{hit.chapterName}</div>
-                      <div className="s">
-                        {hit.stageName ?? '未分阶段'} · {hit.snippet || '（正文为空）'}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          ) : null}
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button className="btn btn-sm" onClick={() => setStageModal({ mode: 'create' })}>
-            <Layers size={14} /> 新建阶段
-          </button>
-          <button className="btn btn-sm btn-primary" onClick={() => openAddMenu()}>
-            <FileText size={14} /> 新建章节
-          </button>
-        </div>
+        {selectMode ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="badge" style={{ background: 'var(--accent-soft)', color: 'var(--accent)', height: 26 }}>
+              已选 {exportSelectionCount} 章
+            </span>
+            <button className="btn btn-sm" onClick={selectAllChapters}>
+              <CheckSquare size={13} /> 全选章节
+            </button>
+            <button className="btn btn-sm" onClick={() => setSelected(new Set(structure.stages.map((s) => s.id).flatMap((sid) => (chaptersByStage.get(sid) ?? []).map((c) => c.id))))}>
+              <Layers size={13} /> 全选阶段
+            </button>
+            <button className="btn btn-sm" onClick={clearSelection} disabled={!exportSelectionCount}>
+              <Square size={13} /> 清空
+            </button>
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={() => void doExportSelected([...selected])}
+              disabled={exporting || !exportSelectionCount}
+            >
+              {exporting ? <span className="spinner" /> : <Download size={13} />}
+              导出所选（{exportSelectionCount}）
+            </button>
+            <button className="btn btn-sm" onClick={() => void doExportSelected(allChapterIds)} disabled={exporting || !allChapterIds.length}>
+              导出全书
+            </button>
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={() => {
+                setSelectMode(false);
+                clearSelection();
+              }}
+            >
+              <X size={13} /> 退出选择
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="search-box">
+              <Search size={14} />
+              <input
+                className="input"
+                placeholder="搜索章节名称或正文…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => searchHits.length && setSearchOpen(true)}
+              />
+              {searchOpen && search.trim() ? (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setSearchOpen(false)} aria-hidden />
+                  <div className="search-results" style={{ zIndex: 45 }}>
+                    {searching ? (
+                      <div style={{ padding: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>搜索中…</div>
+                    ) : searchHits.length === 0 ? (
+                      <div style={{ padding: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>没有找到匹配内容</div>
+                    ) : (
+                      searchHits.map((hit) => (
+                        <div
+                          key={`${hit.projectId}-${hit.chapterId}`}
+                          className="search-hit"
+                          onClick={() => {
+                            setSearchOpen(false);
+                            onOpenChapter(hit.chapterId);
+                          }}
+                        >
+                          <div className="t">{hit.chapterName}</div>
+                          <div className="s">
+                            {hit.stageName ?? '未分阶段'} · {hit.snippet || '（正文为空）'}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button className="btn btn-sm" onClick={() => setStageModal({ mode: 'create' })}>
+                <Layers size={14} /> 新建阶段
+              </button>
+              <button className="btn btn-sm btn-primary" onClick={() => openAddMenu()}>
+                <FileText size={14} /> 新建章节
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="page-body" style={{ padding: '18px 28px 60px' }}>
@@ -351,7 +459,7 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
           <EmptyState
             icon={<BookOpen size={24} />}
             title="从零开始你的第一本书"
-            description="当前项目还没有阶段和章节。先创建「第一阶段」，再在其中新建章节开始写作。"
+            description="当前项目还没有阶段和章节。先创建「第一阶段」，再在其中新建章节开始写作。只需填写名称即可创建，简介可稍后补充。"
             action={
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button className="btn" onClick={() => setStageModal({ mode: 'create' })}>
@@ -368,39 +476,59 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
             {structure.stages.map((stage) => {
               const chapters = chaptersByStage.get(stage.id) ?? [];
               const isCollapsed = collapsed[stage.id] ?? false;
+              const selectedInStage = chapters.filter((c) => selected.has(c.id)).length;
+              const allInStageSelected = chapters.length > 0 && selectedInStage === chapters.length;
               return (
                 <section className="stage-block" key={stage.id}>
                   <header className="stage-head" onClick={() => setCollapsed({ ...collapsed, [stage.id]: !isCollapsed })}>
                     <span style={{ color: 'var(--text-tertiary)', display: 'flex' }}>
                       {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
                     </span>
+                    {selectMode ? (
+                      <button
+                        className="icon-btn"
+                        title={allInStageSelected ? '取消全选本阶段' : '全选本阶段章节'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectStage(stage.id, !allInStageSelected);
+                        }}
+                      >
+                        {allInStageSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                      </button>
+                    ) : null}
                     <span className="stage-name">
                       <Layers size={14} style={{ color: 'var(--accent)' }} />
                       {stage.name}
                       <span className="stage-meta">
                         {chapters.length} 章 · {chapters.reduce((s, c) => s + c.wordCount, 0)} 字
+                        {selectMode && selectedInStage ? ` · 已选 ${selectedInStage}` : ''}
                       </span>
                     </span>
                     <div className="stage-actions" onClick={(e) => e.stopPropagation()}>
                       <button className="icon-btn" title="在此阶段新建章节" onClick={() => openAddMenu(stage.id)}>
                         <Plus size={15} />
                       </button>
-                      <button
-                        className="icon-btn"
-                        title="重命名阶段"
-                        onClick={() => setStageModal({ mode: 'rename', stage })}
-                      >
+                      <button className="icon-btn" title="编辑阶段" onClick={() => setStageModal({ mode: 'rename', stage })}>
                         <Pencil size={14} />
                       </button>
-                      <button className="icon-btn" title="删除阶段" onClick={() => {
-                        setDeleteStage(stage);
-                        setDeleteStageAction(chapters.length ? 'move' : 'move');
-                        setDeleteStageTarget(stageOptions[0]?.id ?? '');
-                      }}>
+                      <button
+                        className="icon-btn"
+                        title="删除阶段"
+                        onClick={() => {
+                          setDeleteStage(stage);
+                          setDeleteStageAction('move');
+                          setDeleteStageTarget(stageOptions[0]?.id ?? '');
+                        }}
+                      >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   </header>
+                  {stage.summary && !isCollapsed ? (
+                    <div style={{ padding: '7px 16px 3px 40px', fontSize: 11.5, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+                      {stage.summary}
+                    </div>
+                  ) : null}
                   {!isCollapsed ? (
                     <div className="chapter-list">
                       {chapters.length === 0 ? (
@@ -413,79 +541,108 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
                       ) : (
                         chapters.map((chapter, index) => (
                           <div
-                            className="chapter-row"
+                            className={`chapter-row${selected.has(chapter.id) ? ' selected-row' : ''}`}
                             key={chapter.id}
-                            onClick={() => onOpenChapter(chapter.id)}
+                            onClick={() => (selectMode ? toggleChapter(chapter.id) : onOpenChapter(chapter.id))}
                             title={chapter.name}
                           >
-                            <span className="chapter-index">{String(index + 1).padStart(2, '0')}</span>
-                            <span className="chapter-title">{chapter.name}</span>
+                            {selectMode ? (
+                              <span style={{ display: 'flex', color: selected.has(chapter.id) ? 'var(--accent)' : 'var(--text-tertiary)', flex: '0 0 auto' }}>
+                                {selected.has(chapter.id) ? <CheckSquare size={15} /> : <Square size={15} />}
+                              </span>
+                            ) : (
+                              <span className="chapter-index">{String(index + 1).padStart(2, '0')}</span>
+                            )}
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span className="chapter-title" style={{ display: 'block' }}>
+                                {chapter.name}
+                              </span>
+                              {chapter.summary ? (
+                                <span
+                                  style={{
+                                    display: 'block',
+                                    fontSize: 11,
+                                    color: 'var(--text-tertiary)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    marginTop: 1,
+                                  }}
+                                >
+                                  {chapter.summary}
+                                </span>
+                              ) : null}
+                            </span>
                             <span className="chapter-words">{chapter.wordCount} 字</span>
                             <span className="chapter-words" style={{ width: 62, textAlign: 'right' }}>
                               {chapter.contentUpdatedAt ? formatRelative(chapter.contentUpdatedAt) : '未开始'}
                             </span>
-                            <span className="chapter-actions" onClick={(e) => e.stopPropagation()}>
-                              <DropdownMenu
-                                label="章节操作"
-                                align="right"
-                                items={[
-                                  {
-                                    key: 'open',
-                                    label: '打开编辑',
-                                    icon: <Pencil size={14} />,
-                                    onClick: () => onOpenChapter(chapter.id),
-                                  },
-                                  {
-                                    key: 'rename',
-                                    label: '重命名 / 修改阶段',
-                                    icon: <Pencil size={14} />,
-                                    onClick: () => setChapterModal({ mode: 'rename', chapter }),
-                                  },
-                                  {
-                                    key: 'move',
-                                    label: '移动到其他阶段',
-                                    icon: <ArrowRightLeft size={14} />,
-                                    onClick: () => setMoveChapter(chapter),
-                                  },
-                                  {
-                                    key: 'up',
-                                    label: '上移',
-                                    icon: <ArrowUp size={14} />,
-                                    disabled: index === 0,
-                                    onClick: () => void shiftChapter(chapter, -1),
-                                  },
-                                  {
-                                    key: 'down',
-                                    label: '下移',
-                                    icon: <ArrowDown size={14} />,
-                                    disabled: index === chapters.length - 1,
-                                    onClick: () => void shiftChapter(chapter, 1),
-                                  },
-                                  'sep',
-                                  {
-                                    key: 'export',
-                                    label: '导出为 TXT',
-                                    icon: <Copy size={14} />,
-                                    onClick: () => void exportChapter(chapter),
-                                  },
-                                  {
-                                    key: 'delete',
-                                    label: '删除章节',
-                                    icon: <Trash2 size={14} />,
-                                    danger: true,
-                                    onClick: () => setDeleteChapter(chapter),
-                                  },
-                                ]}
-                              >
-                                <MoreHorizontal size={15} />
-                              </DropdownMenu>
-                            </span>
+                            {!selectMode ? (
+                              <span className="chapter-actions" onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenu
+                                  label="章节操作"
+                                  align="right"
+                                  items={[
+                                    {
+                                      key: 'open',
+                                      label: '打开编辑',
+                                      icon: <Pencil size={14} />,
+                                      onClick: () => onOpenChapter(chapter.id),
+                                    },
+                                    {
+                                      key: 'rename',
+                                      label: '编辑名称与简介',
+                                      icon: <Pencil size={14} />,
+                                      onClick: () => setChapterModal({ mode: 'rename', chapter }),
+                                    },
+                                    {
+                                      key: 'move',
+                                      label: '移动到其他阶段',
+                                      icon: <ArrowRightLeft size={14} />,
+                                      onClick: () => setMoveChapter(chapter),
+                                    },
+                                    {
+                                      key: 'up',
+                                      label: '上移',
+                                      icon: <ArrowUp size={14} />,
+                                      disabled: index === 0,
+                                      onClick: () => void shiftChapter(chapter, -1),
+                                    },
+                                    {
+                                      key: 'down',
+                                      label: '下移',
+                                      icon: <ArrowDown size={14} />,
+                                      disabled: index === chapters.length - 1,
+                                      onClick: () => void shiftChapter(chapter, 1),
+                                    },
+                                    'sep',
+                                    {
+                                      key: 'export',
+                                      label: '导出本章为 TXT',
+                                      icon: <Copy size={14} />,
+                                      onClick: () => void exportChapter(chapter),
+                                    },
+                                    {
+                                      key: 'delete',
+                                      label: '删除章节',
+                                      icon: <Trash2 size={14} />,
+                                      danger: true,
+                                      onClick: () => setDeleteChapter(chapter),
+                                    },
+                                  ]}
+                                >
+                                  <MoreHorizontal size={15} />
+                                </DropdownMenu>
+                              </span>
+                            ) : null}
                           </div>
                         ))
                       )}
-                      <button className="add-chapter-row" onClick={() => openAddMenu(stage.id)}>
-                        <Plus size={13} /> 新建章节
-                      </button>
+                      {!selectMode ? (
+                        <button className="add-chapter-row" onClick={() => openAddMenu(stage.id)}>
+                          <Plus size={13} /> 新建章节
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </section>
@@ -497,12 +654,24 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
                 <header className="stage-head">
                   <span style={{ width: 15 }} />
                   <span className="stage-name">未分阶段</span>
-                  <span className="stage-meta" style={{ marginLeft: 10 }}>{unassigned.length} 章</span>
+                  <span className="stage-meta" style={{ marginLeft: 10 }}>
+                    {unassigned.length} 章
+                  </span>
                 </header>
                 <div className="chapter-list">
                   {unassigned.map((chapter) => (
-                    <div className="chapter-row" key={chapter.id} onClick={() => onOpenChapter(chapter.id)}>
-                      <span className="chapter-index">—</span>
+                    <div
+                      className="chapter-row"
+                      key={chapter.id}
+                      onClick={() => (selectMode ? toggleChapter(chapter.id) : onOpenChapter(chapter.id))}
+                    >
+                      {selectMode ? (
+                        <span style={{ display: 'flex', color: selected.has(chapter.id) ? 'var(--accent)' : 'var(--text-tertiary)' }}>
+                          {selected.has(chapter.id) ? <CheckSquare size={15} /> : <Square size={15} />}
+                        </span>
+                      ) : (
+                        <span className="chapter-index">—</span>
+                      )}
                       <span className="chapter-title">{chapter.name}</span>
                       <span className="chapter-words">{chapter.wordCount} 字</span>
                     </div>
@@ -522,9 +691,9 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
         initial={stageModal?.stage}
         busy={busy}
         onClose={() => setStageModal(null)}
-        onSubmit={(name) => {
-          if (stageModal?.mode === 'rename' && stageModal.stage) void renameStage(stageModal.stage, name);
-          else void createStage(name);
+        onSubmit={(name, summary) => {
+          if (stageModal?.mode === 'rename' && stageModal.stage) void renameStage(stageModal.stage, name, summary);
+          else void createStage(name, summary);
         }}
       />
 
@@ -538,9 +707,10 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
         defaultStageId={chapterModal?.defaultStageId ?? null}
         busy={busy}
         onClose={() => setChapterModal(null)}
-        onSubmit={(name, stageId) => {
-          if (chapterModal?.mode === 'rename' && chapterModal.chapter) void renameChapter(chapterModal.chapter, name, stageId);
-          else void createChapter(name, stageId === '__none__' ? null : stageId);
+        onSubmit={(name, summary, stageId) => {
+          if (chapterModal?.mode === 'rename' && chapterModal.chapter)
+            void renameChapter(chapterModal.chapter, name, summary, stageId);
+          else void createChapter(name, summary, stageId === '__none__' ? null : stageId);
         }}
       />
 
@@ -554,20 +724,6 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
           <>
             <button className="btn" onClick={() => setMoveChapter(null)}>
               取消
-            </button>
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() => moveChapter && void moveChapterTo(moveChapter, moveChapter.stageId, 'top')}
-            >
-              移到本阶段顶部
-            </button>
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() => moveChapter && void moveChapterTo(moveChapter, moveChapter.stageId, 'bottom')}
-            >
-              移到本阶段末尾
             </button>
           </>
         }
@@ -602,18 +758,12 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
                 >
                   移动到此阶段末尾
                 </button>
-                <button
-                  className="btn btn-sm"
-                  disabled={busy}
-                  onClick={() => moveChapter && void moveChapterTo(moveChapter, s.id, 'top')}
-                >
+                <button className="btn btn-sm" disabled={busy} onClick={() => moveChapter && void moveChapterTo(moveChapter, s.id, 'top')}>
                   移到顶部
                 </button>
               </div>
             ))}
-            {structure.stages.length === 0 ? (
-              <div className="field-hint">还没有阶段，请先新建阶段。</div>
-            ) : null}
+            {structure.stages.length === 0 ? <div className="field-hint">还没有阶段，请先新建阶段。</div> : null}
           </div>
         </div>
       </Modal>
@@ -715,20 +865,22 @@ function StageModal({
   initial?: Stage;
   busy: boolean;
   onClose: () => void;
-  onSubmit: (name: string) => void;
+  onSubmit: (name: string, summary: string) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
+  const [summary, setSummary] = useState(initial?.summary ?? '');
   return (
     <Modal
       open={open}
-      title={mode === 'create' ? '新建阶段' : '重命名阶段'}
+      title={mode === 'create' ? '新建阶段' : '编辑阶段'}
+      subtitle="只需填写名称即可创建；简介可选，后续可随时修改。"
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose}>
             取消
           </button>
-          <button className="btn btn-primary" disabled={busy} onClick={() => onSubmit(name.trim())}>
+          <button className="btn btn-primary" disabled={busy || !name.trim()} onClick={() => onSubmit(name.trim(), summary)}>
             {busy ? <span className="spinner" /> : null}
             {mode === 'create' ? '创建' : '保存'}
           </button>
@@ -736,7 +888,9 @@ function StageModal({
       }
     >
       <div className="field">
-        <label className="field-label">阶段名称</label>
+        <label className="field-label">
+          阶段名称 <span style={{ color: 'var(--danger)' }}>*</span>
+        </label>
         <input
           className="input"
           value={name}
@@ -744,11 +898,21 @@ function StageModal({
           placeholder="例如：第一阶段：战云密布"
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && name.trim()) onSubmit(name.trim());
+            if (e.key === 'Enter' && name.trim()) onSubmit(name.trim(), summary);
           }}
         />
       </div>
-      <div className="field-hint">阶段用于组织章节顺序，可随时重命名或调整章节归属。</div>
+      <div className="field">
+        <label className="field-label">阶段简介（可选）</label>
+        <textarea
+          className="textarea"
+          rows={3}
+          value={summary}
+          placeholder="这一阶段的故事梗概……与大纲中绑定的故事阶段节点互通"
+          onChange={(e) => setSummary(e.target.value)}
+        />
+        <div className="field-hint">简介不填也能创建。填写后可在内容页看到，并与大纲同步。</div>
+      </div>
     </Modal>
   );
 }
@@ -770,14 +934,16 @@ function ChapterModal({
   defaultStageId: string | null;
   busy: boolean;
   onClose: () => void;
-  onSubmit: (name: string, stageId: string) => void;
+  onSubmit: (name: string, summary: string, stageId: string) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
+  const [summary, setSummary] = useState(initial?.summary ?? '');
   const [stageId, setStageId] = useState(initial?.stageId ?? defaultStageId ?? stages[0]?.id ?? '__none__');
   return (
     <Modal
       open={open}
-      title={mode === 'create' ? '新建章节' : '修改章节'}
+      title={mode === 'create' ? '新建章节' : '编辑章节'}
+      subtitle="只需填写章节名称即可创建，简介可稍后补充。简介与大纲中的具体章节节点互通。"
       onClose={onClose}
       footer={
         <>
@@ -787,7 +953,7 @@ function ChapterModal({
           <button
             className="btn btn-primary"
             disabled={busy || !name.trim()}
-            onClick={() => onSubmit(name.trim(), stageId)}
+            onClick={() => onSubmit(name.trim(), summary, stageId)}
           >
             {busy ? <span className="spinner" /> : null}
             {mode === 'create' ? '创建并开始写作' : '保存'}
@@ -806,8 +972,18 @@ function ChapterModal({
           placeholder="例如：第一章 宣战"
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && name.trim()) onSubmit(name.trim(), stageId);
+            if (e.key === 'Enter' && name.trim()) onSubmit(name.trim(), summary, stageId);
           }}
+        />
+      </div>
+      <div className="field">
+        <label className="field-label">本章简介（可选）</label>
+        <textarea
+          className="textarea"
+          rows={3}
+          value={summary}
+          placeholder="这一章讲什么？与大纲中绑定的具体章节节点互通"
+          onChange={(e) => setSummary(e.target.value)}
         />
       </div>
       <div className="field">

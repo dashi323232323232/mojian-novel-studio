@@ -11,6 +11,8 @@ import {
   FileText,
   Info,
   ShieldCheck,
+  FolderCog,
+  ArrowRight,
 } from 'lucide-react';
 import type { AppInfo, BackupInfo, UiSettings } from '@shared/types';
 import { formatBytes, formatDateTime } from '@shared/text';
@@ -26,14 +28,32 @@ export function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<BackupInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BackupInfo | null>(null);
+  const [dataLoc, setDataLoc] = useState<{
+    currentDir: string;
+    defaultDir: string;
+    bootstrapFile: string;
+    isCustom: boolean;
+    exists: boolean;
+    dbSize: number;
+    audioCount: number;
+    backupCount: number;
+  } | null>(null);
+  const [movingDir, setMovingDir] = useState(false);
 
   const refresh = async () => {
     try {
-      const [i, s, ui, b] = await Promise.all([api.info(), api.stats(), api.settings(), api.backups()]);
+      const [i, s, ui, b, loc] = await Promise.all([
+        api.info(),
+        api.stats(),
+        api.settings(),
+        api.backups(),
+        api.dataLocation(),
+      ]);
       setInfo(i);
       setStats(s);
       setSettings(ui);
       setBackups(b.backups);
+      setDataLoc(loc);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '读取设置失败');
     }
@@ -96,6 +116,21 @@ export function SettingsPage() {
       toast.error(err instanceof Error ? err.message : '删除备份失败');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const changeDataDir = async (mode: 'move' | 'switch') => {
+    if (!dataLoc) return;
+    const chosen = await api.chooseDataDir(mode);
+    if (chosen.canceled || !chosen.dir) return;
+    setMovingDir(true);
+    try {
+      const result = await api.moveDataDir(chosen.dir, { mode });
+      toast.success(result.message);
+      toast.info('软件即将重启以使用新的数据位置…');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '切换数据目录失败');
+      setMovingDir(false);
     }
   };
 
@@ -228,6 +263,75 @@ export function SettingsPage() {
               </div>
               <div className="info-note" style={{ marginTop: 12, marginBottom: 0 }}>
                 数据保存在本地 SQLite 数据库（WAL 模式，事务写入）。章节正文独立存储，长篇上千章也不会拖慢列表。软件意外退出不会破坏项目文件。
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <FolderCog size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                数据存储位置
+              </span>
+              <span
+                className="badge"
+                style={{
+                  background: dataLoc?.isCustom ? 'var(--accent-soft)' : 'var(--bg-subtle)',
+                  color: dataLoc?.isCustom ? 'var(--accent)' : 'var(--text-tertiary)',
+                }}
+              >
+                {dataLoc?.isCustom ? '自定义位置' : '默认位置'}
+              </span>
+            </div>
+            <div className="settings-card-body">
+              <div className="kv-row">
+                <span className="k">当前数据目录</span>
+                <span className="v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>
+                  {dataLoc?.currentDir ?? '—'}
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="k">默认目录</span>
+                <span className="v" style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>
+                  {dataLoc?.defaultDir ?? '—'}
+                </span>
+              </div>
+              <div className="kv-row">
+                <span className="k">目录内容</span>
+                <span className="v">
+                  数据库 {formatBytes(dataLoc?.dbSize ?? 0)} · 音频 {dataLoc?.audioCount ?? 0} 项 · 备份{' '}
+                  {dataLoc?.backupCount ?? 0} 份
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button className="btn btn-sm btn-primary" onClick={() => void changeDataDir('move')} disabled={movingDir}>
+                  {movingDir ? <span className="spinner" /> : <FolderCog size={13} />}
+                  选择新位置并迁移数据
+                </button>
+                <button className="btn btn-sm" onClick={() => void changeDataDir('switch')} disabled={movingDir}>
+                  <ArrowRight size={13} /> 仅切换到已有目录
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={async () => {
+                    try {
+                      const r = await api.resetDataDir();
+                      toast.success(r.message);
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : '恢复默认失败');
+                    }
+                  }}
+                >
+                  恢复默认位置
+                </button>
+                <button className="btn btn-sm" onClick={() => void api.openDataDir()}>
+                  <FolderOpen size={13} /> 打开目录
+                </button>
+              </div>
+              <div className="warn-note" style={{ marginTop: 12, marginBottom: 0 }}>
+                <b>迁移模式</b>会把当前数据库、全部音频与备份复制到新目录，校验成功后切换并自动重启软件；
+                <b>仅切换模式</b>不会复制数据，适合目录中已有旧数据的情况。目标目录不能已存在 dashi.db。
+                引导文件位于 <code>{dataLoc?.bootstrapFile ?? '—'}</code>，删除它即可恢复默认位置。
               </div>
             </div>
           </div>

@@ -15,6 +15,7 @@ interface StageRow {
   id: string;
   project_id: string;
   name: string;
+  summary: string;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -25,6 +26,7 @@ interface ChapterRow {
   project_id: string;
   stage_id: string | null;
   name: string;
+  summary: string;
   sort_order: number;
   word_count: number;
   content_updated_at: string | null;
@@ -37,6 +39,7 @@ function mapStage(row: StageRow, chapterCount = 0, wordCount = 0): Stage {
     id: row.id,
     projectId: row.project_id,
     name: row.name,
+    summary: row.summary ?? '',
     sortOrder: row.sort_order,
     chapterCount,
     wordCount,
@@ -51,6 +54,7 @@ function mapChapter(row: ChapterRow): Chapter {
     projectId: row.project_id,
     stageId: row.stage_id,
     name: row.name,
+    summary: row.summary ?? '',
     sortOrder: row.sort_order,
     wordCount: Number(row.word_count ?? 0),
     contentUpdatedAt: row.content_updated_at,
@@ -115,9 +119,10 @@ export class StructureService {
     return rows.map(mapChapter);
   }
 
-  createStage(projectId: string, input: { name: string; index?: number }): Stage {
+  createStage(projectId: string, input: { name: string; summary?: string; index?: number }): Stage {
     this.assertProject(projectId);
     const name = validateName(input?.name, '阶段名称', 120);
+    const summary = typeof input.summary === 'string' ? input.summary : '';
     const max = this.ctx.db.get<{ m: number | null }>(
       'SELECT MAX(sort_order) AS m FROM stages WHERE project_id = ?',
       projectId,
@@ -127,11 +132,12 @@ export class StructureService {
     const ts = nowIso();
     this.ctx.db.transaction(() => {
       this.ctx.db.run(
-        `INSERT INTO stages (id, project_id, name, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO stages (id, project_id, name, summary, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         id,
         projectId,
         name,
+        summary,
         order,
         ts,
         ts,
@@ -142,13 +148,87 @@ export class StructureService {
     return this.getStage(id);
   }
 
-  updateStage(stageId: string, patch: { name?: string }): Stage {
+  updateStage(stageId: string, patch: { name?: string; summary?: string }): Stage {
     const stage = this.getStage(stageId);
-    if (patch.name === undefined) return stage;
-    const name = validateName(patch.name, '阶段名称', 120);
-    this.ctx.db.run('UPDATE stages SET name = ?, updated_at = ? WHERE id = ?', name, nowIso(), stageId);
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (patch.name !== undefined) {
+      sets.push('name = ?');
+      params.push(validateName(patch.name, '阶段名称', 120));
+    }
+    if (patch.summary !== undefined) {
+      sets.push('summary = ?');
+      params.push(String(patch.summary));
+    }
+    if (!sets.length) return stage;
+    sets.push('updated_at = ?');
+    params.push(nowIso(), stageId);
+    this.ctx.db.run(`UPDATE stages SET ${sets.join(', ')} WHERE id = ?`, ...params);
+    this.syncStageNode(stageId);
     this.ctx.changes.emitChange({ scope: 'structure', projectId: stage.projectId, action: 'stage.update' });
     return this.getStage(stageId);
+  }
+
+  /** 把阶段名称/简介同步到绑定的大纲节点。 */
+  private syncStageNode(stageId: string): void {
+    const stage = this.ctx.db.get<{ name: string; summary: string }>(
+      'SELECT name, summary FROM stages WHERE id = ?',
+      stageId,
+    );
+    if (!stage) return;
+    this.ctx.db.run(
+      `UPDATE outline_nodes SET title = ?, description = ?, updated_at = ?
+       WHERE stage_id = ? AND type = 'stage'`,
+      stage.name,
+      stage.summary ?? '',
+      nowIso(),
+      stageId,
+    );
+  }
+
+  /** 把章节名称/简介同步到绑定的具体章节节点。 */
+  private syncChapterNode(chapterId: string): void {
+    const chapter = this.ctx.db.get<{ name: string; summary: string }>(
+      'SELECT name, summary FROM chapters WHERE id = ?',
+      chapterId,
+    );
+    if (!chapter) return;
+    this.ctx.db.run(
+      `UPDATE outline_nodes SET title = ?, description = ?, updated_at = ?
+       WHERE chapter_id = ? AND type = 'chapter'`,
+      chapter.name,
+      chapter.summary ?? '',
+      nowIso(),
+      chapterId,
+    );
+  }
+
+  /** 大纲节点改动后回写章节/阶段（由 OutlineService 调用）。 */
+  syncBoundEntity(
+    nodeType: string,
+    stageId: string | null,
+    chapterId: string | null,
+    title: string,
+    description: string,
+  ): void {
+    const ts = nowIso();
+    if (nodeType === 'stage' && stageId) {
+      this.ctx.db.run(
+        'UPDATE stages SET name = ?, summary = ?, updated_at = ? WHERE id = ?',
+        title,
+        description,
+        ts,
+        stageId,
+      );
+    } else if (nodeType === 'chapter' && chapterId) {
+      this.ctx.db.run(
+        'UPDATE chapters SET name = ?, summary = ?, updated_at = ? WHERE id = ?',
+        title,
+        description,
+        ts,
+        chapterId,
+      );
+    }
   }
 
   reorderStages(projectId: string, orderedIds: string[]): Stage[] {
@@ -175,10 +255,11 @@ export class StructureService {
 
   createChapter(
     projectId: string,
-    input: { name: string; stageId?: string | null; content?: string; index?: number },
+    input: { name: string; summary?: string; stageId?: string | null; content?: string; index?: number },
   ): Chapter {
     this.assertProject(projectId);
     const name = validateName(input?.name, '章节名称', 200);
+    const summary = typeof input.summary === 'string' ? input.summary : '';
     let stageId: string | null = input.stageId ?? null;
     if (stageId) {
       const stage = this.ctx.db.get<{ project_id: string }>('SELECT project_id FROM stages WHERE id = ?', stageId);
@@ -198,12 +279,13 @@ export class StructureService {
     const order = this.nextChapterOrder(projectId);
     this.ctx.db.transaction(() => {
       this.ctx.db.run(
-        `INSERT INTO chapters (id, project_id, stage_id, name, sort_order, word_count, content_updated_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO chapters (id, project_id, stage_id, name, summary, sort_order, word_count, content_updated_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id,
         projectId,
         stageId,
         name,
+        summary,
         order,
         words,
         content ? ts : null,
@@ -235,7 +317,7 @@ export class StructureService {
 
   updateChapter(
     chapterId: string,
-    patch: { name?: string; stageId?: string | null; sortOrder?: number },
+    patch: { name?: string; summary?: string; stageId?: string | null; sortOrder?: number },
   ): Chapter {
     const chapter = this.getChapter(chapterId);
     const sets: string[] = [];
@@ -244,6 +326,10 @@ export class StructureService {
       const name = validateName(patch.name, '章节名称', 200);
       sets.push('name = ?');
       params.push(name);
+    }
+    if (patch.summary !== undefined) {
+      sets.push('summary = ?');
+      params.push(String(patch.summary));
     }
     if (patch.stageId !== undefined) {
       if (patch.stageId === null) {
@@ -265,6 +351,7 @@ export class StructureService {
     sets.push('updated_at = ?');
     params.push(nowIso(), chapterId);
     this.ctx.db.run(`UPDATE chapters SET ${sets.join(', ')} WHERE id = ?`, ...params);
+    this.syncChapterNode(chapterId);
     this.ctx.changes.emitChange({
       scope: 'structure',
       projectId: chapter.projectId,

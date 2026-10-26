@@ -5,7 +5,13 @@ import { useAppStore } from '../store/app';
 import { confirmLeave } from '../lib/leaveGuard';
 import { ChapterEditor } from '../components/editor/ChapterEditor';
 
-export function EditorPage({ structure }: { structure: ProjectStructure }) {
+export function EditorPage({
+  structure,
+  onStructureChanged,
+}: {
+  structure: ProjectStructure;
+  onStructureChanged?: () => void;
+}) {
   const active = useAppStore((s) => s.active);
   const navigate = useAppStore((s) => s.navigate);
   const chapter = structure.chapters.find((c) => c.id === active.chapterId);
@@ -48,6 +54,7 @@ export function EditorPage({ structure }: { structure: ProjectStructure }) {
         onSwitchChapter={(id) => {
           navigate({ view: 'editor', chapterId: id });
         }}
+        onSummarySaved={onStructureChanged}
         headerRight={
           <button
             className="btn btn-sm"

@@ -190,6 +190,7 @@ export class ProjectService {
       id: string;
       project_id: string;
       name: string;
+      summary: string;
       sort_order: number;
       created_at: string;
       updated_at: string;
@@ -207,6 +208,7 @@ export class ProjectService {
       project_id: string;
       stage_id: string | null;
       name: string;
+      summary: string;
       sort_order: number;
       word_count: number;
       content_updated_at: string | null;
@@ -222,6 +224,7 @@ export class ProjectService {
         id: s.id,
         projectId: s.project_id,
         name: s.name,
+        summary: s.summary ?? '',
         sortOrder: s.sort_order,
         chapterCount: Number(s.chapter_count),
         wordCount: Number(s.word_count),
@@ -233,6 +236,7 @@ export class ProjectService {
         projectId: c.project_id,
         stageId: c.stage_id,
         name: c.name,
+        summary: c.summary ?? '',
         sortOrder: c.sort_order,
         wordCount: Number(c.word_count),
         contentUpdatedAt: c.content_updated_at,

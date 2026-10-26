@@ -37,6 +37,17 @@ export const api = {
   openDataDir: () => unwrap(getApi().app.openDataDir()),
   openPath: (path: string) => unwrap(getApi().app.openPath(path)),
   showItemInFolder: (path: string) => unwrap(getApi().app.showItemInFolder(path)),
+  dataLocation: () => unwrap(getApi().app.dataLocation()),
+  chooseDataDir: (mode?: 'move' | 'switch') => unwrap(getApi().app.chooseDataDir(mode)),
+  moveDataDir: (target: string, options?: { mode?: 'move' | 'switch' }) =>
+    unwrap(getApi().app.moveDataDir(target, options)),
+  resetDataDir: () => unwrap(getApi().app.resetDataDir()),
+  exportChapters: (options: {
+    projectId: string;
+    chapterIds: string[];
+    includeStageHeaders?: boolean;
+    defaultName?: string;
+  }) => unwrap(getApi().export.chapters(options)),
   backups: () => unwrap(getApi().app.backups()),
   createBackup: () => unwrap(getApi().app.createBackup()),
   restoreBackup: (fileName: string) => unwrap(getApi().app.restoreBackup(fileName)),
@@ -59,19 +70,23 @@ export const api = {
   search: (query: string, projectId?: string): Promise<SearchHit[]> =>
     unwrap(getApi().projects.search(query, projectId)),
 
-  createStage: (projectId: string, name: string): Promise<Stage> =>
-    unwrap(getApi().stages.create(projectId, { name })),
-  renameStage: (stageId: string, name: string): Promise<Stage> =>
-    unwrap(getApi().stages.update(stageId, { name })),
+  createStage: (projectId: string, name: string, summary = ''): Promise<Stage> =>
+    unwrap(getApi().stages.create(projectId, { name, summary })),
+  renameStage: (stageId: string, name: string, summary = ''): Promise<Stage> =>
+    unwrap(getApi().stages.update(stageId, { name, summary })),
   reorderStages: (projectId: string, orderedIds: string[]): Promise<Stage[]> =>
     unwrap(getApi().stages.reorder(projectId, orderedIds)),
   deleteStage: (stageId: string, options: DeleteStageOptions) =>
     unwrap(getApi().stages.delete(stageId, options)),
 
-  createChapter: (projectId: string, input: { name: string; stageId?: string | null }): Promise<Chapter> =>
-    unwrap(getApi().chapters.create(projectId, input)),
-  updateChapter: (chapterId: string, patch: { name?: string; stageId?: string | null }): Promise<Chapter> =>
-    unwrap(getApi().chapters.update(chapterId, patch)),
+  createChapter: (
+    projectId: string,
+    input: { name: string; summary?: string; stageId?: string | null },
+  ): Promise<Chapter> => unwrap(getApi().chapters.create(projectId, input)),
+  updateChapter: (
+    chapterId: string,
+    patch: { name?: string; summary?: string; stageId?: string | null },
+  ): Promise<Chapter> => unwrap(getApi().chapters.update(chapterId, patch)),
   moveChapter: (
     chapterId: string,
     input: { stageId?: string | null; beforeChapterId?: string | null },

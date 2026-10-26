@@ -7,11 +7,14 @@ import {
   Plus,
   Unlink,
   X,
-  Check,
   Lightbulb,
   Save,
+  StickyNote,
+  Eraser,
+  BookOpen,
 } from 'lucide-react';
 import type {
+  Chapter,
   EdgeRelation,
   Foreshadow,
   NodeType,
@@ -19,6 +22,7 @@ import type {
   OutlineNode,
   OutlineSnapshot,
   ProjectStructure,
+  Stage,
 } from '@shared/types';
 import { EDGE_RELATION_META, NODE_TYPE_META, FORESHADOW_STATUS_META } from '@shared/constants';
 import { api } from '../../lib/api';
@@ -38,29 +42,28 @@ interface Props {
   focusChapterId?: string | null;
   selectedEdgeId: string | null;
   onSelectEdge: (edgeId: string | null) => void;
+  /** 大纲中节点名称/简介回写后，通知外层刷新章节结构 */
+  onStructureChanged?: () => void;
 }
 
-const FIELD_BY_TYPE: Record<NodeType, Array<{ key: string; label: string; placeholder?: string; multiline?: boolean }>> = {
-  stage: [
-    { key: 'goal', label: '阶段目标', placeholder: '这一阶段要完成什么…', multiline: true },
-    { key: 'notes', label: '相关备注', placeholder: '补充说明', multiline: true },
-  ],
+const FIELD_BY_TYPE: Record<
+  NodeType,
+  Array<{ key: string; label: string; placeholder?: string; multiline?: boolean }>
+> = {
+  stage: [{ key: 'goal', label: '阶段目标', placeholder: '这一阶段要完成什么…', multiline: true }],
   event: [
     { key: 'time', label: '时间', placeholder: '例如：1870 年 9 月' },
     { key: 'location', label: '地点', placeholder: '例如：色当' },
-    { key: 'notes', label: '相关备注', placeholder: '补充说明', multiline: true },
   ],
+  chapter: [],
   character: [
     { key: 'role', label: '身份', placeholder: '例如：法兰西第二帝国皇帝' },
     { key: 'age', label: '年龄', placeholder: '例如：62' },
     { key: 'appearance', label: '外貌', placeholder: '外貌特征', multiline: true },
     { key: 'personality', label: '性格', placeholder: '性格特征', multiline: true },
-    { key: 'notes', label: '相关备注', placeholder: '补充说明', multiline: true },
   ],
-  foreshadow: [
-    { key: 'notes', label: '相关备注', placeholder: '伏笔的埋设与回收说明', multiline: true },
-  ],
-  note: [{ key: 'notes', label: '相关备注', placeholder: '自由文本', multiline: true }],
+  foreshadow: [],
+  note: [],
 };
 
 export function NodeDetails({
@@ -77,10 +80,12 @@ export function NodeDetails({
   focusChapterId,
   selectedEdgeId,
   onSelectEdge,
+  onStructureChanged,
 }: Props) {
   const node = snapshot.nodes.find((n) => n.id === selectedNodeId) ?? null;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [notes, setNotes] = useState('');
   const [data, setData] = useState<Record<string, unknown>>({});
   const [type, setType] = useState<NodeType>('event');
   const [saving, setSaving] = useState(false);
@@ -90,11 +95,13 @@ export function NodeDetails({
   const [edgeLabel, setEdgeLabel] = useState('');
   const [edgeDesc, setEdgeDesc] = useState('');
   const saveTimer = useRef<number | null>(null);
+  const notesRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (!node) return;
     setTitle(node.title);
     setDescription(node.description);
+    setNotes(node.notes ?? '');
     setData({ ...(node.data ?? {}) });
     setType(node.type);
     setDirty(false);
@@ -123,14 +130,24 @@ export function NodeDetails({
   const linkedChapters = useMemo(() => {
     if (!node) return [];
     const ids = snapshot.links.filter((l) => l.nodeId === node.id).map((l) => l.chapterId);
-    const list = structure.chapters.filter((c) => ids.includes(c.id));
-    return list.map((c) => ({
-      ...c,
-      stageName: structure.stages.find((s) => s.id === c.stageId)?.name ?? null,
-    }));
+    const bound = node.data?.chapterId ? [String(node.data.chapterId)] : [];
+    const all = [...new Set([...ids, ...bound])];
+    return structure.chapters
+      .filter((c) => all.includes(c.id))
+      .map((c) => ({ ...c, stageName: structure.stages.find((s) => s.id === c.stageId)?.name ?? null }));
   }, [snapshot.links, structure, node]);
 
   const characters = useMemo(() => snapshot.nodes.filter((n) => n.type === 'character'), [snapshot.nodes]);
+
+  const boundStage: Stage | null = useMemo(() => {
+    if (!node?.data?.stageId) return null;
+    return structure.stages.find((s) => s.id === String(node.data.stageId)) ?? null;
+  }, [node, structure.stages]);
+
+  const boundChapter: Chapter | null = useMemo(() => {
+    if (!node?.data?.chapterId) return null;
+    return structure.chapters.find((c) => c.id === String(node.data.chapterId)) ?? null;
+  }, [node, structure.chapters]);
 
   const linkedForeshadow = useMemo(() => {
     if (!node) return null;
@@ -140,6 +157,7 @@ export function NodeDetails({
   const persist = async (patch: {
     title?: string;
     description?: string;
+    notes?: string;
     data?: Record<string, unknown>;
     type?: NodeType;
   }) => {
@@ -152,6 +170,9 @@ export function NodeDetails({
         nodes: snapshot.nodes.map((n) => (n.id === updated.id ? updated : n)),
       });
       setDirty(false);
+      if (patch.title !== undefined || patch.description !== undefined) {
+        onStructureChanged?.();
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '保存节点失败');
     } finally {
@@ -159,7 +180,12 @@ export function NodeDetails({
     }
   };
 
-  const scheduleSave = (next: { title?: string; description?: string; data?: Record<string, unknown> }) => {
+  const scheduleSave = (next: {
+    title?: string;
+    description?: string;
+    notes?: string;
+    data?: Record<string, unknown>;
+  }) => {
     setDirty(true);
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
@@ -176,7 +202,62 @@ export function NodeDetails({
   const flush = async () => {
     if (!node) return;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    await persist({ title, description, data });
+    await persist({ title, description, notes, data });
+  };
+
+  const clearNotes = async () => {
+    if (!node) return;
+    setNotes('');
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    await persist({ title, description, notes: '', data });
+    toast.success('备注已清空');
+    notesRef.current?.focus();
+  };
+
+  const bindStage = async (stageId: string) => {
+    if (!node) return;
+    const stage = structure.stages.find((s) => s.id === stageId);
+    if (!stage) return;
+    try {
+      const updated = await api.updateNode(node.id, {
+        type: 'stage',
+        title: stage.name,
+        description: stage.summary,
+        data: { ...data, stageId: stage.id },
+      });
+      onSnapshotChange({ ...snapshot, nodes: snapshot.nodes.map((n) => (n.id === updated.id ? updated : n)) });
+      setTitle(updated.title);
+      setDescription(updated.description);
+      setType(updated.type);
+      setData({ ...updated.data });
+      onStructureChanged?.();
+      toast.success(`已绑定阶段「${stage.name}」，名称与简介双向同步`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '绑定阶段失败');
+    }
+  };
+
+  const bindChapter = async (chapterId: string) => {
+    if (!node) return;
+    const chapter = structure.chapters.find((c) => c.id === chapterId);
+    if (!chapter) return;
+    try {
+      const updated = await api.updateNode(node.id, {
+        type: 'chapter',
+        title: chapter.name,
+        description: chapter.summary,
+        data: { ...data, chapterId: chapter.id },
+      });
+      onSnapshotChange({ ...snapshot, nodes: snapshot.nodes.map((n) => (n.id === updated.id ? updated : n)) });
+      setTitle(updated.title);
+      setDescription(updated.description);
+      setType(updated.type);
+      setData({ ...updated.data });
+      onStructureChanged?.();
+      toast.success(`已绑定章节「${chapter.name}」，简介双向同步`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '绑定章节失败');
+    }
   };
 
   const linkChapter = async (chapterId: string) => {
@@ -258,6 +339,7 @@ export function NodeDetails({
     return structure.chapters.find((c) => c.id === focusChapterId) ?? null;
   }, [focusChapterId, structure.chapters]);
 
+  // ---------------- 连线编辑 ----------------
   if (selectedEdge) {
     return (
       <aside className="outline-details">
@@ -284,9 +366,6 @@ export function NodeDetails({
                 </option>
               ))}
             </select>
-            <div className="field-hint" style={{ marginTop: 6 }}>
-              不同的关系类型会以不同颜色和虚实线展示，避免剧情关系混为一谈。
-            </div>
           </div>
           <div className="detail-section">
             <div className="detail-section-title">关系说明</div>
@@ -323,6 +402,7 @@ export function NodeDetails({
     );
   }
 
+  // ---------------- 未选中 ----------------
   if (!node) {
     return (
       <aside className="outline-details">
@@ -336,17 +416,18 @@ export function NodeDetails({
             </div>
             <h3>未选择节点</h3>
             <p style={{ fontSize: 12 }}>
-              在画布上点击一个节点查看和编辑详情。拖动左侧节点类型到画布可创建新节点，拖动节点右侧圆点到另一个节点可创建连线。
+              点击画布节点查看和编辑详情。左侧可添加故事阶段、剧情事件、具体章节、人物、伏笔与备注节点；拖动节点右侧圆点到另一个节点即可连线。
             </p>
           </div>
-          {relatedEdgeCountHint(snapshot, focusChapter)}
         </div>
       </aside>
     );
   }
 
   const meta = NODE_TYPE_META[node.type];
-  const fields = FIELD_BY_TYPE[node.type] ?? FIELD_BY_TYPE.note;
+  const fields = FIELD_BY_TYPE[node.type] ?? [];
+  const isBoundEntity = node.type === 'stage' || node.type === 'chapter';
+  const boundLabel = node.type === 'stage' ? boundStage?.name : boundChapter?.name;
 
   return (
     <aside className="outline-details">
@@ -367,19 +448,37 @@ export function NodeDetails({
       <div className="outline-details-body">
         {focusChapter ? (
           <div className="info-note" style={{ marginBottom: 14, fontSize: 11.5 }}>
-            联动中：正在编辑章节「{focusChapter.name}」，该章节与当前节点关联。
+            联动中：正在编辑章节「{focusChapter.name}」。
+          </div>
+        ) : null}
+
+        {isBoundEntity ? (
+          <div className="info-note" style={{ fontSize: 11.5, marginBottom: 12 }}>
+            {boundLabel ? (
+              <>
+                已绑定真实{node.type === 'stage' ? '阶段' : '章节'}「{boundLabel}」，此处修改的
+                <b>名称与简介</b>会同步到内容页与编辑器。
+              </>
+            ) : (
+              <>尚未绑定真实{node.type === 'stage' ? '阶段' : '章节'}，可在下方选择绑定；绑定后名称与简介双向同步。</>
+            )}
           </div>
         ) : null}
 
         <div className="field">
-          <label className="field-label">节点名称</label>
+          <label className="field-label">
+            节点名称
+            {isBoundEntity && boundLabel ? (
+              <span className="field-hint">（与真实{node.type === 'stage' ? '阶段' : '章节'}同步）</span>
+            ) : null}
+          </label>
           <input
             className="input"
             value={title}
             maxLength={200}
             onChange={(e) => {
               setTitle(e.target.value);
-              scheduleSave({ title: e.target.value, description, data });
+              scheduleSave({ title: e.target.value, description, notes, data });
             }}
             onBlur={() => void flush()}
           />
@@ -405,15 +504,24 @@ export function NodeDetails({
         </div>
 
         <div className="field">
-          <label className="field-label">剧情描述</label>
+          <label className="field-label">
+            {node.type === 'chapter' ? '章节简介' : node.type === 'stage' ? '阶段简介' : '剧情描述'}
+            {isBoundEntity ? <span className="field-hint">（双向同步）</span> : null}
+          </label>
           <textarea
             className="textarea"
-            style={{ minHeight: 90 }}
+            style={{ minHeight: 92 }}
             value={description}
-            placeholder="这一节点在故事中发生了什么…"
+            placeholder={
+              node.type === 'chapter'
+                ? '这一章讲什么？与内容页、编辑器中的章节简介互通。'
+                : node.type === 'stage'
+                  ? '这一阶段讲什么？与内容页中的阶段简介互通。'
+                  : '这一节点在故事中发生了什么…'
+            }
             onChange={(e) => {
               setDescription(e.target.value);
-              scheduleSave({ title, description: e.target.value, data });
+              scheduleSave({ title, description: e.target.value, notes, data });
             }}
             onBlur={() => void flush()}
           />
@@ -431,7 +539,7 @@ export function NodeDetails({
                 onChange={(e) => {
                   const next = { ...data, [f.key]: e.target.value };
                   setData(next);
-                  scheduleSave({ title, description, data: next });
+                  scheduleSave({ title, description, notes, data: next });
                 }}
                 onBlur={() => void flush()}
               />
@@ -443,13 +551,98 @@ export function NodeDetails({
                 onChange={(e) => {
                   const next = { ...data, [f.key]: e.target.value };
                   setData(next);
-                  scheduleSave({ title, description, data: next });
+                  scheduleSave({ title, description, notes, data: next });
                 }}
                 onBlur={() => void flush()}
               />
             )}
           </div>
         ))}
+
+        {node.type === 'stage' ? (
+          <div className="field">
+            <label className="field-label">绑定内容页中的阶段</label>
+            <select
+              className="select"
+              value={boundStage?.id ?? ''}
+              onChange={(e) => {
+                if (e.target.value) void bindStage(e.target.value);
+              }}
+            >
+              <option value="">未绑定</option>
+              {structure.stages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <div className="field-hint">绑定后，节点名称与阶段简介和内容页互通。</div>
+          </div>
+        ) : null}
+
+        {node.type === 'chapter' ? (
+          <div className="field">
+            <label className="field-label">绑定内容页中的章节</label>
+            <select
+              className="select"
+              value={boundChapter?.id ?? ''}
+              onChange={(e) => {
+                if (e.target.value) void bindChapter(e.target.value);
+              }}
+            >
+              <option value="">未绑定</option>
+              {structure.chapters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <div className="field-hint">绑定后，节点名称与章节简介和内容页、编辑器互通。</div>
+            {boundChapter ? (
+              <button
+                className="btn btn-sm"
+                style={{ marginTop: 6, alignSelf: 'flex-start' }}
+                onClick={() => onOpenChapter?.(boundChapter.id, node.id)}
+              >
+                <BookOpen size={13} /> 打开这一章正文
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="detail-section">
+          <div className="detail-section-title">
+            <span>
+              <StickyNote size={11} style={{ verticalAlign: -1, marginRight: 4 }} />
+              备注（不限字数）
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontWeight: 400 }}>{notes.length} 字</span>
+              {notes ? (
+                <button className="icon-btn" title="一键清空备注" onClick={() => void clearNotes()}>
+                  <Eraser size={13} />
+                </button>
+              ) : null}
+            </span>
+          </div>
+          <textarea
+            ref={notesRef}
+            className="textarea"
+            style={{ minHeight: 120, fontSize: 12.5, lineHeight: 1.7 }}
+            value={notes}
+            placeholder="记录灵感、写作提醒、资料摘录……可写任意长度，哪怕超过章节正文。"
+            onChange={(e) => {
+              setNotes(e.target.value);
+              scheduleSave({ title, description, notes: e.target.value, data });
+            }}
+            onBlur={() => void flush()}
+          />
+          {notes ? (
+            <button className="btn btn-sm btn-soft-danger" style={{ marginTop: 6 }} onClick={() => void clearNotes()}>
+              <Eraser size={12} /> 删除备注
+            </button>
+          ) : null}
+        </div>
 
         {node.type === 'character' ? (
           <div className="field">
@@ -528,7 +721,7 @@ export function NodeDetails({
                         setChapterQuery('');
                       }}
                     >
-                      <BookOpenIcon />
+                      <BookOpen size={12} style={{ flex: '0 0 auto', color: 'var(--text-tertiary)' }} />
                       <span className="n">{c.name}</span>
                       <Plus size={12} style={{ color: 'var(--accent)' }} />
                     </div>
@@ -544,7 +737,7 @@ export function NodeDetails({
           ) : (
             linkedChapters.map((c) => (
               <div key={c.id} className="linked-chapter-row">
-                <BookOpenIcon />
+                <BookOpen size={12} style={{ flex: '0 0 auto', color: 'var(--text-tertiary)' }} />
                 <span className="n" title={`${c.stageName ?? ''} ${c.name}`}>
                   {c.name}
                 </span>
@@ -559,11 +752,7 @@ export function NodeDetails({
             ))
           )}
           {onEnterLinkMode && linkedChapters.length > 0 ? (
-            <button
-              className="btn btn-sm"
-              style={{ width: '100%', marginTop: 8 }}
-              onClick={() => onEnterLinkMode(node.id)}
-            >
+            <button className="btn btn-sm" style={{ width: '100%', marginTop: 8 }} onClick={() => onEnterLinkMode(node.id)}>
               <Link2 size={13} /> 进入大纲-正文联动工作区
             </button>
           ) : null}
@@ -583,12 +772,7 @@ export function NodeDetails({
               const other = snapshot.nodes.find((n) => n.id === otherId);
               const metaE = EDGE_RELATION_META[e.relation];
               return (
-                <div
-                  key={e.id}
-                  className="linked-chapter-row"
-                  onClick={() => onSelectEdge(e.id)}
-                  title="点击编辑连线"
-                >
+                <div key={e.id} className="linked-chapter-row" onClick={() => onSelectEdge(e.id)} title="点击编辑连线">
                   <span
                     style={{
                       width: 7,
@@ -608,34 +792,10 @@ export function NodeDetails({
           )}
         </div>
 
-        <button
-          className="btn btn-primary"
-          style={{ width: '100%' }}
-          onClick={() => void flush()}
-          disabled={saving || !dirty}
-        >
+        <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => void flush()} disabled={saving || !dirty}>
           <Save size={14} /> {saving ? '保存中…' : dirty ? '保存修改' : '已保存'}
         </button>
       </div>
     </aside>
-  );
-}
-
-function BookOpenIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flex: '0 0 auto' }}>
-      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    </svg>
-  );
-}
-
-function relatedEdgeCountHint(snapshot: OutlineSnapshot, focusChapter: ProjectStructure['chapters'][number] | null) {
-  if (!focusChapter) return null;
-  const nodeIds = snapshot.links.filter((l) => l.chapterId === focusChapter.id).map((l) => l.nodeId);
-  return (
-    <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--text-tertiary)', lineHeight: 1.7 }}>
-      当前章节「{focusChapter.name}」关联 {nodeIds.length} 个节点。
-    </div>
   );
 }

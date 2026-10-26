@@ -22,6 +22,7 @@ interface Props {
   settings: { fontSize: number; lineHeight: number; fontFamily: 'serif' | 'sans'; autoSave: boolean; showWordCount: boolean };
   onSwitchChapter: (chapterId: string) => void;
   onSaved?: (chapterId: string, wordCount: number) => void;
+  onSummarySaved?: () => void;
   /** 用于让父组件调用保存（例如顶部保存按钮、全局 Ctrl+S） */
   registerHandle?: (handle: ChapterEditorHandle | null) => void;
   headerLeft?: React.ReactNode;
@@ -43,6 +44,7 @@ export function ChapterEditor({
   settings,
   onSwitchChapter,
   onSaved,
+  onSummarySaved,
   registerHandle,
   headerLeft,
   headerRight,
@@ -65,6 +67,35 @@ export function ChapterEditor({
   const [conflict, setConflict] = useState<{ currentRevision: number; serverContent: string } | null>(null);
   const [leavePrompt, setLeavePrompt] = useState<{ resolve: (ok: boolean) => void } | null>(null);
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({});
+  const [summary, setSummary] = useState(chapter.summary ?? '');
+  const [summarySaving, setSummarySaving] = useState(false);
+  const summaryTimer = useRef<number | null>(null);
+
+  // 切换章节时同步简介
+  useEffect(() => {
+    setSummary(chapter.summary ?? '');
+  }, [chapter.id, chapter.summary]);
+
+  const saveSummary = useCallback(
+    async (value: string) => {
+      setSummarySaving(true);
+      try {
+        await api.updateChapter(chapter.id, { summary: value });
+        onSummarySaved?.();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : '保存章节简介失败');
+      } finally {
+        setSummarySaving(false);
+      }
+    },
+    [chapter.id, onSummarySaved],
+  );
+
+  const handleSummaryChange = (value: string) => {
+    setSummary(value);
+    if (summaryTimer.current) window.clearTimeout(summaryTimer.current);
+    summaryTimer.current = window.setTimeout(() => void saveSummary(value), 900);
+  };
 
   const contentRef = useRef(content);
   contentRef.current = content;
@@ -274,6 +305,7 @@ export function ChapterEditor({
   useEffect(() => {
     return () => {
       clearTimer();
+      if (summaryTimer.current) window.clearTimeout(summaryTimer.current);
     };
   }, []);
 
@@ -440,6 +472,25 @@ export function ChapterEditor({
                     <span>{currentStage?.name ?? '未分阶段'}</span>
                     <span>{wordCount} 字</span>
                     <span>第 {savedRevision} 版</span>
+                  </div>
+                  <div className="chapter-summary-box">
+                    <div className="chapter-summary-label">
+                      <span>本章简介</span>
+                      <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>
+                        {summarySaving ? '保存中…' : '自动保存 · 与大纲同步'}
+                      </span>
+                    </div>
+                    <textarea
+                      className="chapter-summary-input"
+                      value={summary}
+                      placeholder="这一章讲什么？可留空，也可以写任意长度。此简介与大纲中的具体章节节点互通。"
+                      onChange={(e) => handleSummaryChange(e.target.value)}
+                      onBlur={() => {
+                        if (summaryTimer.current) window.clearTimeout(summaryTimer.current);
+                        if ((chapter.summary ?? '') !== summary) void saveSummary(summary);
+                      }}
+                      rows={3}
+                    />
                   </div>
                 </>
               ) : null}

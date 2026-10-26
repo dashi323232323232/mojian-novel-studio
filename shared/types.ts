@@ -3,7 +3,7 @@
  * 主进程（SQLite 数据层 / HTTP API）、预加载脚本与渲染层都依赖这里的定义。
  */
 
-export const NODE_TYPES = ['stage', 'event', 'character', 'foreshadow', 'note'] as const;
+export const NODE_TYPES = ['stage', 'event', 'chapter', 'character', 'foreshadow', 'note'] as const;
 export type NodeType = (typeof NODE_TYPES)[number];
 
 export const EDGE_RELATIONS = [
@@ -52,6 +52,8 @@ export interface Stage {
   id: string;
   projectId: string;
   name: string;
+  /** 阶段简介：与大纲中绑定的故事阶段节点互通 */
+  summary: string;
   sortOrder: number;
   chapterCount: number;
   wordCount: number;
@@ -64,6 +66,8 @@ export interface Chapter {
   projectId: string;
   stageId: string | null;
   name: string;
+  /** 章节简介：与大纲中绑定的具体章节节点互通 */
+  summary: string;
   sortOrder: number;
   wordCount: number;
   contentUpdatedAt: string | null;
@@ -124,9 +128,13 @@ export interface OutlineNodeData {
   location?: string;
   /** 伏笔节点关联的伏笔对象 */
   foreshadowId?: string;
+  /** 故事阶段节点：绑定的真实阶段 */
+  stageId?: string;
+  /** 具体章节节点：绑定的真实章节 */
+  chapterId?: string;
   /** 故事阶段节点：阶段目标 */
   goal?: string;
-  /** 通用备注 */
+  /** 通用备注（兼容旧数据，新数据写入 outline_nodes.notes 列） */
   notes?: string;
   /** 预留扩展字段 */
   [key: string]: unknown;
@@ -144,6 +152,8 @@ export interface OutlineNode {
   height: number;
   color: string | null;
   data: OutlineNodeData;
+  /** 节点备注：不限字数，可在大纲详情中直接查看、改写或清空 */
+  notes: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -350,6 +360,9 @@ export interface OutlineNodeInput {
   type: NodeType;
   title: string;
   description?: string;
+  notes?: string;
+  stageId?: string | null;
+  chapterId?: string | null;
   x?: number;
   y?: number;
   width?: number;
@@ -361,6 +374,18 @@ export interface OutlineNodeInput {
 export type OutlineNodePatch = Partial<Omit<OutlineNodeInput, 'type'>> & {
   type?: NodeType;
 };
+
+export interface StageInput {
+  name: string;
+  summary?: string;
+}
+
+export interface ChapterInput {
+  name: string;
+  summary?: string;
+  stageId?: string | null;
+  content?: string;
+}
 
 export interface OutlineEdgeInput {
   sourceId: string;

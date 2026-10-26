@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
+  FileText,
   LayoutList,
   ChevronLeft,
   ChevronRight,
@@ -31,6 +32,7 @@ import type { OutlineNode } from '@shared/types';
 const TYPE_ICONS: Record<NodeType, React.ReactNode> = {
   stage: <Flag size={13} />,
   event: <BookOpen size={13} />,
+  chapter: <FileText size={13} />,
   character: <User size={13} />,
   foreshadow: <Lightbulb size={13} />,
   note: <StickyNote size={13} />,
@@ -46,6 +48,7 @@ interface Props {
   foreshadows: Foreshadow[];
   reloadForeshadows: () => Promise<void>;
   reloadSnapshot: () => Promise<void>;
+  reloadStructure: () => Promise<void>;
   /** 从外部（例如悬停列表点击章节）进入联动工作区 */
   enterLink: (nodeId: string, chapterId: string) => void;
   linkState: { nodeId: string; chapterId: string } | null;
@@ -61,6 +64,7 @@ export function OutlinePage({
   foreshadows,
   reloadForeshadows,
   reloadSnapshot,
+  reloadStructure,
   enterLink,
   linkState,
   exitLink,
@@ -315,6 +319,9 @@ export function OutlinePage({
             onDeleteNode={(node) => setDeleteTarget(node)}
             selectedEdgeId={selectedEdgeId}
             onSelectEdge={setSelectedEdgeId}
+            onStructureChanged={() => {
+              void reloadStructure();
+            }}
             onOpenChapter={openChapterFromNode}
             onEnterLinkMode={(nodeId) => {
               const linked = snapshot.links.find((l) => l.nodeId === nodeId);

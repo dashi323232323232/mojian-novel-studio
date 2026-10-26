@@ -3,7 +3,7 @@
   "info": {
     "title": "大师小说工作台 本地 API",
     "version": "v1",
-    "description": "大师小说工作台 1.0.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
+    "description": "大师小说工作台 1.1.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
     "contact": {
       "name": "大师小说工作台",
       "url": "https://localhost/"
@@ -89,7 +89,7 @@
                   "ok": true,
                   "status": "running",
                   "app": "大师小说工作台",
-                  "appVersion": "1.0.0",
+                  "appVersion": "1.1.0",
                   "apiVersion": "v1",
                   "database": "ok"
                 }
@@ -137,7 +137,7 @@
                   "additionalProperties": true
                 },
                 "example": {
-                  "appVersion": "1.0.0",
+                  "appVersion": "1.1.0",
                   "apiVersion": "v1",
                   "name": "大师小说工作台",
                   "endpoints": {
@@ -2237,6 +2237,110 @@
         "x-dashi-confirmation": "需要用户开启「允许高危操作」并显式确认"
       }
     },
+    "/api/v1/outline/nodes/{nodeId}/clear-notes": {
+      "post": {
+        "operationId": "clearOutlineNodeNotes",
+        "summary": "清空节点备注",
+        "tags": [
+          "大纲"
+        ],
+        "description": "一键删除节点备注（等价于 PATCH notes=\"\"）。",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "in": "path",
+            "required": true,
+            "description": "节点 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "修改后的节点",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/outline/reconcile-bindings": {
+      "post": {
+        "operationId": "reconcileOutlineBindings",
+        "summary": "按名称自动绑定阶段/章节节点",
+        "tags": [
+          "大纲"
+        ],
+        "description": "把未绑定的 stage/chapter 节点按名称匹配到真实阶段或章节，并同步简介。",
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "description": "项目 ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "绑定数量",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/outline/nodes/{nodeId}/duplicate": {
       "post": {
         "operationId": "duplicateOutlineNode",
@@ -3903,6 +4007,10 @@
             "type": "string",
             "example": "第一阶段：战云密布"
           },
+          "summary": {
+            "type": "string",
+            "description": "阶段简介，与大纲中绑定的故事阶段节点互通"
+          },
           "sortOrder": {
             "type": "number",
             "example": 0
@@ -3950,6 +4058,10 @@
           "name": {
             "type": "string",
             "example": "第一章 宣战"
+          },
+          "summary": {
+            "type": "string",
+            "description": "章节简介，与大纲中绑定的具体章节节点互通"
           },
           "sortOrder": {
             "type": "number",
@@ -4060,6 +4172,7 @@
             "enum": [
               "stage",
               "event",
+              "chapter",
               "character",
               "foreshadow",
               "note"
@@ -4096,10 +4209,14 @@
               "null"
             ]
           },
+          "notes": {
+            "type": "string",
+            "description": "节点备注，不限字数，可随时清空"
+          },
           "data": {
             "type": "object",
             "additionalProperties": true,
-            "description": "按节点类型扩展的字段：role/age/appearance/personality/time/location/goal/foreshadowId/notes 等",
+            "description": "扩展字段：stageId/chapterId（绑定真实对象）、role/age/appearance/personality/time/location/goal/foreshadowId 等",
             "example": {
               "time": "1870-09-01",
               "location": "色当"
@@ -4559,18 +4676,22 @@
             "type": "string",
             "maxLength": 120,
             "example": "第二阶段"
+          },
+          "summary": {
+            "type": "string",
+            "description": "阶段简介（可选）"
           }
         }
       },
       "UpdateStageInput": {
         "type": "object",
-        "required": [
-          "name"
-        ],
         "properties": {
           "name": {
             "type": "string",
             "maxLength": 120
+          },
+          "summary": {
+            "type": "string"
           }
         }
       },
@@ -4584,6 +4705,10 @@
             "type": "string",
             "maxLength": 200,
             "example": "第一章 宣战"
+          },
+          "summary": {
+            "type": "string",
+            "description": "章节简介（可选），与大纲具体章节节点互通"
           },
           "stageId": {
             "type": [
@@ -4603,6 +4728,9 @@
           "name": {
             "type": "string",
             "maxLength": 200
+          },
+          "summary": {
+            "type": "string"
           },
           "stageId": {
             "type": [
@@ -4668,6 +4796,7 @@
             "enum": [
               "stage",
               "event",
+              "chapter",
               "character",
               "foreshadow",
               "note"
@@ -4679,6 +4808,24 @@
           },
           "description": {
             "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "description": "节点备注，不限字数"
+          },
+          "stageId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "type=stage 时绑定真实阶段"
+          },
+          "chapterId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "type=chapter 时绑定真实章节"
           },
           "x": {
             "type": "number"
@@ -4712,6 +4859,7 @@
             "enum": [
               "stage",
               "event",
+              "chapter",
               "character",
               "foreshadow",
               "note"
@@ -4721,6 +4869,9 @@
             "type": "string"
           },
           "description": {
+            "type": "string"
+          },
+          "notes": {
             "type": "string"
           },
           "x": {
@@ -5218,6 +5369,6 @@
     }
   },
   "x-dashi-api-version": "v1",
-  "x-dashi-app-version": "1.0.0",
+  "x-dashi-app-version": "1.1.0",
   "x-dashi-discovery": "用户数据目录/api-endpoint.json 中的 baseUrl 字段"
 }
