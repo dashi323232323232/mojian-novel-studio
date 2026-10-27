@@ -53,10 +53,13 @@ if [ "$COUNT" -gt 2 ]; then
 fi
 
 # ---- 3) 推送到 GitHub：先推送归档分支/标签，再清理本地归档引用 ----
+# 注意：本地分支在 git reset 后可能已不存在，因此推送前重新创建归档引用。
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
 if [ -n "$REMOTE_URL" ]; then
   echo "正在推送 main 与归档分支 ${ARCHIVE_BRANCH} …"
   git push -f origin "HEAD:refs/heads/main" 2>&1 | tail -2 || echo "推送 main 失败（可稍后手动重试）"
+  git branch -f "$ARCHIVE_BRANCH" "$SNAPSHOT" 2>/dev/null || true
+  git tag -f "$VERSION" "$SNAPSHOT" >/dev/null 2>&1 || true
   git push -f origin "refs/heads/${ARCHIVE_BRANCH}:refs/heads/${ARCHIVE_BRANCH}" 2>&1 | tail -2 || echo "推送归档分支失败"
   git push -f origin "refs/tags/${VERSION}" 2>&1 | tail -2 || echo "推送标签失败"
 
