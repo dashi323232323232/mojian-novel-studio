@@ -7,6 +7,7 @@ import path from 'node:path';
 import { AppCore } from '../electron/main/core';
 import { buildOpenApiSpec } from '../electron/main/api/openapi';
 import { buildAgentGuide } from '../electron/main/api/agentGuide';
+import { buildOutlineGuide } from '../electron/main/api/outlineGuide';
 
 const root = path.resolve(__dirname, '..');
 const outDir = path.join(root, 'docs');
@@ -25,7 +26,12 @@ try {
     dataDir: '%APPDATA%\\大师小说工作台',
   });
   fs.writeFileSync(path.join(outDir, 'AGENT_GUIDE.md'), guide, 'utf8');
-  console.log('已生成 docs/openapi.json 与 docs/AGENT_GUIDE.md');
+  const outlineGuide = buildOutlineGuide({
+    baseUrl: 'http://127.0.0.1:45871',
+    token: '<从软件 Agent 接入页复制>',
+  });
+  fs.writeFileSync(path.join(outDir, 'OUTLINE_GUIDE.md'), outlineGuide, 'utf8');
+  console.log('已生成 docs/openapi.json、docs/AGENT_GUIDE.md 与 docs/OUTLINE_GUIDE.md');
 } finally {
   core.close();
   fs.rmSync(dataDir, { recursive: true, force: true });

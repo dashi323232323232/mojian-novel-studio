@@ -7,6 +7,7 @@ export const NODE_TYPES = ['stage', 'event', 'chapter', 'character', 'foreshadow
 export type NodeType = (typeof NODE_TYPES)[number];
 
 export const EDGE_RELATIONS = [
+  'contains',
   'sequence',
   'causal',
   'parallel',

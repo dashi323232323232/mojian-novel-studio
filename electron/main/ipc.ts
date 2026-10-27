@@ -5,6 +5,7 @@ import type { AppCore } from './core';
 import type { ApiServer } from './api/server';
 import type { EndpointFileService } from './api/discovery';
 import { buildAgentGuide } from './api/agentGuide';
+import { buildOutlineGuide } from './api/outlineGuide';
 import { buildOpenApiSpec } from './api/openapi';
 import { errorPayload, NovelError } from './errors';
 import { describeDataLocation, migrateDataDir, resetDataDir, switchDataDir } from './dataLocation';
@@ -519,6 +520,18 @@ export function registerIpc(deps: IpcDeps): void {
         endpointFilePath: endpoint.filePath,
         dataDir: core.dataDir,
       });
+      clipboard.writeText(guide);
+      return { copied: true, length: guide.length };
+    }),
+  );
+  ipcMain.handle(
+    'api:outlineGuide',
+    wrap(() => buildOutlineGuide({ baseUrl: api.getBaseUrl(), token: api.getToken() })),
+  );
+  ipcMain.handle(
+    'api:copyOutlineGuide',
+    wrap(() => {
+      const guide = buildOutlineGuide({ baseUrl: api.getBaseUrl(), token: api.getToken() });
       clipboard.writeText(guide);
       return { copied: true, length: guide.length };
     }),

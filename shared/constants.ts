@@ -5,7 +5,7 @@ import type {
   NodeType,
 } from './types';
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 export const API_VERSION = 'v1';
 export const API_PREFIX = '/api/v1';
 export const DEFAULT_API_PORT = 45871;
@@ -22,7 +22,7 @@ export const NODE_TYPE_META: Record<
     color: '#6d5bd0',
     bg: '#f1eeff',
     border: '#cfc6f7',
-    description: '划分故事的大段落，例如「普法战争」「战后重建」。',
+    description: '长期时间段，例如「我的高中三年」「普法战争时期」。',
   },
   event: {
     label: '剧情事件',
@@ -30,7 +30,7 @@ export const NODE_TYPE_META: Record<
     color: '#2563eb',
     bg: '#eaf2ff',
     border: '#bcd4ff',
-    description: '推动剧情的关键事件，可按时间顺序连线。',
+    description: '阶段内发生的一件具体小事，例如「和同桌打了一架」。可关联一个或多个章节。',
   },
   chapter: {
     label: '具体章节',
@@ -70,6 +70,7 @@ export const EDGE_RELATION_META: Record<
   EdgeRelation,
   { label: string; description: string; color: string; dashed?: boolean }
 > = {
+  contains: { label: '包含', description: '长期阶段包含其中的剧情事件 / 章节', color: '#6d5bd0', dashed: true },
   sequence: { label: '先后顺序', description: 'A 之后发生 B', color: '#64748b' },
   causal: { label: '因果推动', description: 'A 导致 B', color: '#2563eb' },
   parallel: { label: '并行发展', description: 'A 与 B 同时发生', color: '#0f8a6a', dashed: true },

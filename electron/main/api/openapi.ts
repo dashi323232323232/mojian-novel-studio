@@ -121,7 +121,7 @@ const outlineEdgeSchema: Json = {
     targetId: { type: 'string' },
     relation: {
       type: 'string',
-      enum: ['sequence', 'causal', 'parallel', 'setup', 'payoff', 'relation', 'custom'],
+      enum: ['contains', 'sequence', 'causal', 'parallel', 'setup', 'payoff', 'relation', 'custom'],
       example: 'causal',
     },
     label: { type: 'string', example: '导致' },
@@ -337,6 +337,17 @@ const ops: OpDef[] = [
     path: '/api/v1/agent-guide',
     operationId: 'getAgentGuide',
     summary: '获取完整 Agent 接入文档（Markdown）',
+    tags: ['系统'],
+    public: true,
+    responseDescription: 'Markdown 文档',
+  },
+  {
+    method: 'get',
+    path: '/api/v1/outline-guide',
+    operationId: 'getOutlineGuide',
+    summary: '获取大纲使用说明（Markdown）',
+    description:
+      '专门说明故事阶段、剧情事件、具体章节、伏笔四类节点的语义与正确用法，包含判断清单、画布布局建议和完整调用示例。适合单独复制给只关心大纲搭建的 AI。',
     tags: ['系统'],
     public: true,
     responseDescription: 'Markdown 文档',
@@ -703,7 +714,12 @@ const ops: OpDef[] = [
     path: '/api/v1/projects/{projectId}/outline/nodes',
     operationId: 'createOutlineNode',
     summary: '创建大纲节点',
-    description: '节点位置、尺寸、类型、内容都会持久化。data 可携带类型专属字段。',
+    description:
+      '节点位置、尺寸、类型、内容都会持久化。type 取值与语义：stage=故事阶段（长期时间段，如“我的高中三年”，可绑 stageId）；' +
+      'event=剧情事件（阶段内发生的具体小事，如“和同桌打了一架”，用 data.time/data.location 记录时间地点，' +
+      '并通过 contains 连线挂到阶段下、通过 links 接口关联一个或多个章节）；chapter=具体章节（绑定真实章节 chapterId，简介双向同步）；' +
+      'character=人物；foreshadow=伏笔（跨多个事件/章节的线索）；note=备注。' +
+      '推荐布局：stage 在 x=80，event 在 x=420，chapter 在 x=760，同列按时间从上往下 y 每次 +160。',
     tags: ['大纲'],
     params: [param('projectId', '项目 ID')],
     body: jsonBody(
@@ -814,7 +830,10 @@ const ops: OpDef[] = [
     path: '/api/v1/projects/{projectId}/outline/edges',
     operationId: 'createOutlineEdge',
     summary: '创建连线',
-    description: 'relation 表达明确关系：sequence/causal/parallel/setup/payoff/relation/custom。相同两端 + 相同关系不会重复创建。',
+    description:
+      'relation 表达明确关系：contains（阶段包含事件/章节，阶段→被包含者）、sequence（先后顺序，先→后）、causal（因果）、' +
+      'parallel（并行）、setup（伏笔埋设）、payoff（伏笔回收）、relation（人物关系）、custom（自定义，用 label 说明）。' +
+      '「故事阶段包含剧情事件」请使用 contains，不要用 sequence。相同两端 + 相同关系不会重复创建。',
     tags: ['大纲'],
     params: [param('projectId', '项目 ID')],
     body: jsonBody('#/components/schemas/CreateOutlineEdgeInput', {
@@ -1320,8 +1339,9 @@ const schemas: Record<string, Json> = {
       targetId: { type: 'string' },
       relation: {
         type: 'string',
-        enum: ['sequence', 'causal', 'parallel', 'setup', 'payoff', 'relation', 'custom'],
+        enum: ['contains', 'sequence', 'causal', 'parallel', 'setup', 'payoff', 'relation', 'custom'],
         default: 'sequence',
+        description: 'contains=阶段包含事件/章节；sequence=先后顺序；causal=因果；parallel=并行；setup=伏笔埋设；payoff=伏笔回收；relation=人物关系；custom=自定义',
       },
       label: { type: 'string', maxLength: 120 },
       description: { type: 'string', maxLength: 2000 },
@@ -1332,7 +1352,10 @@ const schemas: Record<string, Json> = {
     properties: {
       sourceId: { type: 'string' },
       targetId: { type: 'string' },
-      relation: { type: 'string', enum: ['sequence', 'causal', 'parallel', 'setup', 'payoff', 'relation', 'custom'] },
+      relation: {
+        type: 'string',
+        enum: ['contains', 'sequence', 'causal', 'parallel', 'setup', 'payoff', 'relation', 'custom'],
+      },
       label: { type: 'string' },
       description: { type: 'string' },
     },

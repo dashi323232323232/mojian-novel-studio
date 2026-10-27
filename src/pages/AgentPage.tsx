@@ -36,6 +36,8 @@ export function AgentPage() {
   const [testing, setTesting] = useState(false);
   const [copying, setCopying] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [outlineGuideOpen, setOutlineGuideOpen] = useState(false);
+  const [outlineGuide, setOutlineGuide] = useState('');
   const [openapiOpen, setOpenapiOpen] = useState(false);
   const [openapi, setOpenapi] = useState<string>('');
   const [busy, setBusy] = useState(false);
@@ -77,6 +79,24 @@ export function AgentPage() {
       toast.error(err instanceof Error ? err.message : '复制失败');
     } finally {
       setCopying(false);
+    }
+  };
+
+  const copyOutlineGuide = async () => {
+    try {
+      const result = await api.copyOutlineGuide();
+      toast.success(`大纲使用说明已复制（${result.length.toLocaleString()} 字符）`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '复制失败');
+    }
+  };
+
+  const loadOutlineGuide = async () => {
+    try {
+      setOutlineGuide(await api.outlineGuide());
+      setOutlineGuideOpen(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '读取大纲说明失败');
     }
   };
 
@@ -407,6 +427,55 @@ curl ${status?.baseUrl ?? 'http://127.0.0.1:45871'}/api/v1/projects \\
             <div className="card">
               <div className="card-head">
                 <div className="card-title">
+                  <BookOpen size={14} /> 大纲使用说明（推荐单独发给 AI）
+                </div>
+                <button className="btn btn-sm" onClick={() => void copyOutlineGuide()}>
+                  <Copy size={12} /> 复制
+                </button>
+              </div>
+              <div className="card-body">
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.75, marginBottom: 10 }}>
+                  很多 AI 只会用「故事阶段」和「具体章节」，不知道「剧情事件」怎么用。这份说明专门讲清四类节点的区别：
+                  <br />
+                  <b>故事阶段</b>＝长期时间段（我的高中三年）；
+                  <b>剧情事件</b>＝阶段里的小事（和同桌打了一架）；
+                  <b>具体章节</b>＝写正文的地方；
+                  <b>伏笔</b>＝隔很多章才回收的线索。
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn btn-sm btn-primary" onClick={() => void copyOutlineGuide()}>
+                    <Copy size={12} /> 复制大纲使用说明
+                  </button>
+                  <button className="btn btn-sm" onClick={() => void loadOutlineGuide()}>
+                    <Eye size={12} /> 查看
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={async () => {
+                      try {
+                        const text = await api.outlineGuide();
+                        const result = await api.exportText('大纲使用说明.md', text);
+                        if (!result.canceled) toast.success('大纲使用说明已导出');
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : '导出失败');
+                      }
+                    }}
+                  >
+                    <Download size={12} /> 导出为文件
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => void copyText(`${status?.baseUrl ?? ''}/api/v1/outline-guide`, '大纲说明地址')}
+                  >
+                    <ExternalLink size={12} /> 复制在线地址
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-head">
+                <div className="card-title">
                   <FileJson size={14} /> 接口概览
                 </div>
                 <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>OpenAPI 3.1</span>
@@ -499,6 +568,26 @@ curl ${status?.baseUrl ?? 'http://127.0.0.1:45871'}/api/v1/projects \\
         }
       >
         <div className="doc-preview">{guide || '加载中…'}</div>
+      </Modal>
+
+      <Modal
+        open={outlineGuideOpen}
+        title="大纲使用说明"
+        subtitle="专门说明故事阶段 / 剧情事件 / 具体章节 / 伏笔的区别与调用方式，可直接复制给 AI。"
+        width="xl"
+        onClose={() => setOutlineGuideOpen(false)}
+        footer={
+          <>
+            <button className="btn" onClick={() => setOutlineGuideOpen(false)}>
+              关闭
+            </button>
+            <button className="btn btn-primary" onClick={() => void copyOutlineGuide()}>
+              <Copy size={13} /> 复制全文
+            </button>
+          </>
+        }
+      >
+        <div className="doc-preview">{outlineGuide || '加载中…'}</div>
       </Modal>
 
       <Modal

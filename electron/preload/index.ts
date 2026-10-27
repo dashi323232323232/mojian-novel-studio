@@ -120,6 +120,8 @@ const api = {
     openapi: () => ipcRenderer.invoke('api:openapi'),
     guide: () => ipcRenderer.invoke('api:guide'),
     copyGuide: () => ipcRenderer.invoke('api:copyGuide'),
+    outlineGuide: () => ipcRenderer.invoke('api:outlineGuide'),
+    copyOutlineGuide: () => ipcRenderer.invoke('api:copyOutlineGuide'),
     copyText: (text: string) => ipcRenderer.invoke('api:copyText', text),
   },
   events: {

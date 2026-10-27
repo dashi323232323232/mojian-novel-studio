@@ -452,6 +452,12 @@ export function NodeDetails({
           </div>
         ) : null}
 
+        {node.type === 'event' ? (
+          <div className="info-note" style={{ fontSize: 11.5, marginBottom: 12 }}>
+            剧情事件＝某个<b>故事阶段</b>里发生的一件具体小事（例如「和同桌打了一架」）。
+            把它用「包含」连到阶段，并在下方关联它要写进的一个或多个章节。
+          </div>
+        ) : null}
         {isBoundEntity ? (
           <div className="info-note" style={{ fontSize: 11.5, marginBottom: 12 }}>
             {boundLabel ? (

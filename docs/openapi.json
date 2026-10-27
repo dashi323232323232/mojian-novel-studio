@@ -3,7 +3,7 @@
   "info": {
     "title": "大师小说工作台 本地 API",
     "version": "v1",
-    "description": "大师小说工作台 1.2.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
+    "description": "大师小说工作台 1.3.0 的本地 HTTP API。\n默认只监听 127.0.0.1，需要 Bearer 令牌鉴权（健康检查、版本、OpenAPI、Agent 文档除外）。\n章节正文采用「当前版本 + 上一个版本」保留策略；删除项目/章节/阶段、删除节点/伏笔/音频等属于高危操作，需要用户在软件内开启许可并显式确认。\n服务端口可能因占用而改变，请从用户数据目录的 api-endpoint.json 读取 baseUrl。",
     "contact": {
       "name": "大师小说工作台",
       "url": "https://localhost/"
@@ -89,7 +89,7 @@
                   "ok": true,
                   "status": "running",
                   "app": "大师小说工作台",
-                  "appVersion": "1.2.0",
+                  "appVersion": "1.3.0",
                   "apiVersion": "v1",
                   "database": "ok"
                 }
@@ -137,7 +137,7 @@
                   "additionalProperties": true
                 },
                 "example": {
-                  "appVersion": "1.2.0",
+                  "appVersion": "1.3.0",
                   "apiVersion": "v1",
                   "name": "大师小说工作台",
                   "endpoints": {
@@ -218,6 +218,49 @@
         "tags": [
           "系统"
         ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Markdown 文档",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/outline-guide": {
+      "get": {
+        "operationId": "getOutlineGuide",
+        "summary": "获取大纲使用说明（Markdown）",
+        "tags": [
+          "系统"
+        ],
+        "description": "专门说明故事阶段、剧情事件、具体章节、伏笔四类节点的语义与正确用法，包含判断清单、画布布局建议和完整调用示例。适合单独复制给只关心大纲搭建的 AI。",
         "security": [],
         "parameters": [],
         "responses": {
@@ -1974,7 +2017,7 @@
         "tags": [
           "大纲"
         ],
-        "description": "节点位置、尺寸、类型、内容都会持久化。data 可携带类型专属字段。",
+        "description": "节点位置、尺寸、类型、内容都会持久化。type 取值与语义：stage=故事阶段（长期时间段，如“我的高中三年”，可绑 stageId）；event=剧情事件（阶段内发生的具体小事，如“和同桌打了一架”，用 data.time/data.location 记录时间地点，并通过 contains 连线挂到阶段下、通过 links 接口关联一个或多个章节）；chapter=具体章节（绑定真实章节 chapterId，简介双向同步）；character=人物；foreshadow=伏笔（跨多个事件/章节的线索）；note=备注。推荐布局：stage 在 x=80，event 在 x=420，chapter 在 x=760，同列按时间从上往下 y 每次 +160。",
         "parameters": [
           {
             "name": "projectId",
@@ -2525,7 +2568,7 @@
         "tags": [
           "大纲"
         ],
-        "description": "relation 表达明确关系：sequence/causal/parallel/setup/payoff/relation/custom。相同两端 + 相同关系不会重复创建。",
+        "description": "relation 表达明确关系：contains（阶段包含事件/章节，阶段→被包含者）、sequence（先后顺序，先→后）、causal（因果）、parallel（并行）、setup（伏笔埋设）、payoff（伏笔回收）、relation（人物关系）、custom（自定义，用 label 说明）。「故事阶段包含剧情事件」请使用 contains，不要用 sequence。相同两端 + 相同关系不会重复创建。",
         "parameters": [
           {
             "name": "projectId",
@@ -4395,6 +4438,7 @@
           "relation": {
             "type": "string",
             "enum": [
+              "contains",
               "sequence",
               "causal",
               "parallel",
@@ -5087,6 +5131,7 @@
           "relation": {
             "type": "string",
             "enum": [
+              "contains",
               "sequence",
               "causal",
               "parallel",
@@ -5095,7 +5140,8 @@
               "relation",
               "custom"
             ],
-            "default": "sequence"
+            "default": "sequence",
+            "description": "contains=阶段包含事件/章节；sequence=先后顺序；causal=因果；parallel=并行；setup=伏笔埋设；payoff=伏笔回收；relation=人物关系；custom=自定义"
           },
           "label": {
             "type": "string",
@@ -5119,6 +5165,7 @@
           "relation": {
             "type": "string",
             "enum": [
+              "contains",
               "sequence",
               "causal",
               "parallel",
@@ -5529,6 +5576,6 @@
     }
   },
   "x-dashi-api-version": "v1",
-  "x-dashi-app-version": "1.2.0",
+  "x-dashi-app-version": "1.3.0",
   "x-dashi-discovery": "用户数据目录/api-endpoint.json 中的 baseUrl 字段"
 }

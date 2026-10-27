@@ -1,7 +1,7 @@
 # 大师小说工作台 · Agent 接入文档
 
-> 版本：软件 1.2.0 · API v1
-> 生成时间：2026/10/27 02:55:18
+> 版本：软件 1.3.0 · API v1
+> 生成时间：2026/10/28 00:34:08
 > 当前数据库项目数：0
 
 本文档是给外部 AI Agent / 自动化脚本的**完整操作手册**。所有接口均已在软件中真实实现，文档与实现保持同步。请按「服务发现 → 鉴权 → 调用 → 校验」的顺序使用。
@@ -23,7 +23,7 @@
 ```json
 {
   "app": "大师小说工作台",
-  "appVersion": "1.2.0",
+  "appVersion": "1.3.0",
   "apiVersion": "v1",
   "baseUrl": "http://127.0.0.1:45871",
   "host": "127.0.0.1",
@@ -31,8 +31,8 @@
   "auth": { "type": "bearer", "header": "Authorization: Bearer <token>" },
   "docs": "http://127.0.0.1:45871/api/v1/agent-guide",
   "openapi": "http://127.0.0.1:45871/api/v1/openapi.json",
-  "pid": 12548,
-  "updatedAt": "2026-10-26T18:55:18.359Z"
+  "pid": 40764,
+  "updatedAt": "2026-10-27T16:34:08.375Z"
 }
 ```
 
@@ -131,44 +131,254 @@
   "id": "nod_...",
   "projectId": "prj_...",
   "type": "event",
-  "title": "色当战役",
-  "description": "法军主力被围，拿破仑三世投降。",
+  "title": "和同桌打了一架",
+  "description": "因为一支钢笔吵起来，动手后被班主任叫去办公室，从此结下梁子。",
   "x": 320,
   "y": 180,
   "width": 230,
   "height": 116,
   "color": null,
-  "data": { "time": "1870-09-01", "location": "色当", "notes": "与第二章呼应" }
+  "notes": "打架这段要写出少年意气，不要写成暴力。",
+  "data": { "time": "高一上学期 10 月", "location": "教室后排" }
 }
 ```
 
 节点另有 `notes` 字段（备注，不限字数，可 `PATCH notes=""` 清空，或调用 `POST /api/v1/outline/nodes/{nodeId}/clear-notes`）。
 
-节点类型 `type`：
+#### 节点类型 `type` 一览
 
-| 值 | 含义 | data 常用字段 |
+| 值 | 中文 | 一句话作用 | `data` 常用字段 |
+| --- | --- | --- | --- |
+| `stage` | 故事阶段 | **长期时间段**（可绑定真实阶段） | `stageId`、`goal` |
+| `event` | 剧情事件 | **阶段内发生的具体小事** | `time`、`location` |
+| `chapter` | 具体章节 | **真正写正文的章节**（可绑定真实章节） | `chapterId` |
+| `character` | 人物 | 人物档案 | `role`、`age`、`appearance`、`personality` |
+| `foreshadow` | 伏笔 | 跨多个事件/章节的线索 | `foreshadowId` |
+| `note` | 备注 | 自由文本、资料、待办 | `notes` |
+
+---
+
+#### ⭐ 重点：`event`（剧情事件）到底怎么用
+
+**这是最容易被误用的类型。请务必读完本节。**
+
+##### 一句话定义
+
+> **剧情事件 = 故事阶段这个长期时间段里，发生的某一件具体的小事。**
+
+它**不是**章节，**不是**阶段，也**不是**伏笔。它是"情节的颗粒"，用来把一段漫长的生活拆成一个个可以讲的瞬间。
+
+##### 三类节点的时间尺度对比（关键）
+
+| 类型 | 时间尺度 | 举例 | 一句话 |
+| --- | --- | --- | --- |
+| `stage` 故事阶段 | **几个月 ~ 几年**（长期） | 「我的高中三年」「普法战争时期」 | 一个大盒子 |
+| `event` 剧情事件 | **几小时 ~ 几天**（短） | 「和同桌打了一架」「色当战役爆发」 | 盒子里的一件小事 |
+| `chapter` 具体章节 | **一个叙事单元**（可长可短） | 「第三章 梁子结下了」 | 把小事写成正文的地方 |
+
+##### 正确的层级关系（请按这个结构搭）
+
+```
+故事阶段：我的高中三年                (stage 节点)
+   │  contains 包含
+   ├── 剧情事件：和同桌打了一架        (event 节点)
+   │       │  describes / 关联章节
+   │       └── 具体章节：第三章 梁子结下了   (chapter 节点)
+   │
+   ├── 剧情事件：第一次月考失利        (event 节点)
+   │       └── 具体章节：第五章 排名单   (chapter 节点)
+   │
+   └── 剧情事件：运动会接力赛          (event 节点)
+           └── 具体章节：第七章 最后一棒 (chapter 节点)
+```
+
+##### 一个事件可以对应多个章节（很重要）
+
+你提到"一个事件时间比较长，可能要用多个章节来写"。这是**完全支持**的：
+
+```
+剧情事件：备战高考的一年
+   ├── 具体章节：第九章 题海
+   ├── 具体章节：第十章 模考
+   └── 具体章节：第十一章 考前夜
+```
+
+做法：把**同一个 `event` 节点**分别与多个 `chapter` 节点建立连线（或直接调用关联接口把事件节点关联到多个真实章节）。**不要**为了这件事把事件复制成三份。
+
+##### 什么时候该建 `event` 节点？（判断清单）
+
+只要满足下面任意一条，就应该建一个 `event` 节点：
+
+- [ ] 这件事可以单独讲成一个"小故事"，有起因、经过、结果；
+- [ ] 这件事发生在某个**故事阶段之内**，是那个阶段里的一段插曲；
+- [ ] 这件事推动了人物关系或主线（比如"结下梁子"）；
+- [ ] 这件事需要 1 个或多个章节来展开描写；
+- [ ] 你想在画布上看清"这个阶段里到底发生了哪些事"。
+
+反例（**不要**建 `event`）：
+
+- ❌ "第一章" —— 这是章节，用 `chapter`；
+- ❌ "我的高中三年" —— 这是长期阶段，用 `stage`；
+- ❌ "军旗会在结局出现" —— 这是伏笔，用 `foreshadow`；
+- ❌ "主角性格内向" —— 这是人物设定，用 `character` 或写进 `notes`；
+- ❌ "第三章要写打架" —— 这是写作任务，用 `note` 或写进章节简介。
+
+##### 事件节点该填什么
+
+| 字段 | 必填 | 说明 | 示例 |
+| --- | --- | --- | --- |
+| `type` | ✅ | 固定 `"event"` | `"event"` |
+| `title` | ✅ | **一句话说清发生了什么**，动宾结构最好 | `"和同桌打了一架"` |
+| `description` | 建议 | 起因 → 经过 → 结果，2~4 句 | `"因为一支钢笔吵起来……"` |
+| `data.time` | 建议 | 在阶段内的相对时间 | `"高一上学期 10 月"` |
+| `data.location` | 可选 | 地点 | `"教室后排"` |
+| `notes` | 可选 | 写作提醒、素材，**不限字数** | `"要写出少年意气"` |
+| `x` / `y` | 建议 | 画布坐标，见下方布局建议 | `320 / 180` |
+
+> `title` 不要写成章节号。事件名要能让人一眼看出"发生了什么"，例如
+> ✅「和同桌打了一架」 ❌「打架事件1」
+
+##### 事件节点的画布布局建议
+
+为了让画布一眼看懂，建议按列摆放（画布 x 向右为正）：
+
+| 列 | 节点类型 | 建议 `x` |
 | --- | --- | --- |
-| `stage` | 故事阶段（可绑定真实阶段） | `stageId`、`goal` |
-| `event` | 剧情事件 | `time`、`location` |
-| `chapter` | 具体章节（可绑定真实章节） | `chapterId` |
-| `character` | 人物 | `role`、`age`、`appearance`、`personality` |
-| `foreshadow` | 伏笔 | `foreshadowId` |
-| `note` | 备注 / 普通文本 | `notes` |
+| 第 1 列 | `stage` 故事阶段 | `80` |
+| 第 2 列 | `event` 剧情事件 | `420` |
+| 第 3 列 | `chapter` 具体章节 | `760` |
+
+同一列内按时间先后从上往下排，`y` 每次 +160 左右。这样打开大纲就能看到"阶段 → 事件 → 章节"的清晰流向。
+
+##### 创建剧情事件的完整示例
+
+**第 1 步：确认项目与阶段 ID**
+
+```bash
+curl -s "$BASE/api/v1/projects/$PROJECT/structure" -H "$AUTH"
+# 从返回的 stages[] 里取 stageId，例如 stg_abc
+```
+
+**第 2 步：创建剧情事件节点**
+
+```bash
+curl -s -X POST "$BASE/api/v1/projects/$PROJECT/outline/nodes"   -H "$AUTH" -H "Content-Type: application/json"   -d '{
+    "type": "event",
+    "title": "和同桌打了一架",
+    "description": "因为一支钢笔吵起来，动手后被班主任叫去办公室，从此结下梁子。",
+    "x": 420,
+    "y": 180,
+    "data": { "time": "高一上学期 10 月", "location": "教室后排" },
+    "notes": "要写出少年意气，不要写成暴力。"
+  }'
+```
+
+返回：
+
+```json
+{
+  "node": {
+    "id": "nod_event_001",
+    "type": "event",
+    "title": "和同桌打了一架",
+    "description": "因为一支钢笔吵起来……",
+    "notes": "要写出少年意气，不要写成暴力。",
+    "x": 420, "y": 180, "width": 230, "height": 116,
+    "data": { "time": "高一上学期 10 月", "location": "教室后排" }
+  }
+}
+```
+
+**第 3 步：把事件挂到阶段下面（包含关系）**
+
+```bash
+curl -s -X POST "$BASE/api/v1/projects/$PROJECT/outline/edges"   -H "$AUTH" -H "Content-Type: application/json"   -d '{"sourceId":"'"$STAGE_NODE"'","targetId":"'"$EVENT_NODE"'","relation":"contains","label":"包含"}'
+```
+
+> `sourceId` 是阶段节点、`targetId` 是事件节点，方向是「阶段 → 事件」。
+> `relation` 必须用 `contains`，不要用 `sequence`（`sequence` 表示"先发生 A 再发生 B"，不是包含关系）。
+
+**第 4 步：把事件连到要写的章节**
+
+```bash
+# 4a. 如果章节节点已经在画布上：建 describes 连线
+curl -s -X POST "$BASE/api/v1/projects/$PROJECT/outline/edges"   -H "$AUTH" -H "Content-Type: application/json"   -d '{"sourceId":"'"$EVENT_NODE"'","targetId":"'"$CHAPTER_NODE"'","relation":"sequence","label":"写入"}'
+
+# 4b. 或者直接把事件节点关联到真实章节（推荐，会在悬停列表里出现）
+curl -s -X POST "$BASE/api/v1/projects/$PROJECT/links"   -H "$AUTH" -H "Content-Type: application/json"   -d '{"nodeId":"'"$EVENT_NODE"'","chapterId":"'"$CHAPTER"'"}'
+```
+
+**第 5 步：一个事件写多章**
+
+```bash
+curl -s -X POST "$BASE/api/v1/projects/$PROJECT/links"   -H "$AUTH" -H "Content-Type: application/json"   -d '{"nodeId":"'"$EVENT_NODE"'","chapterId":"'"$CHAPTER_2"'"}'
+```
+
+**第 6 步：校验**
+
+```bash
+curl -s "$BASE/api/v1/outline/nodes/$EVENT_NODE" -H "$AUTH"
+curl -s "$BASE/api/v1/outline/nodes/$EVENT_NODE/chapters" -H "$AUTH"
+```
+
+---
+
+#### 其他类型的语义（配合理解）
+
+- **`stage` 故事阶段**：长期时间段，例如"我的高中三年""普法战争时期"。**不要**把单个小故事建成阶段。
+- **`chapter` 具体章节**：真正写正文的地方，必须绑定真实章节（`data.chapterId`）才能与正文/简介同步。
+- **`foreshadow` 伏笔**：**跨越多个事件、多个章节的线索**。例如"军旗"在第 1 章埋下、第 12 章回收，中间隔了很多事件——这种情况才用伏笔，不要用事件表达。
+- **`character` 人物**：人物档案与人物关系。
+- **`note` 备注**：资料、灵感、待办，不参与剧情连线。
+
+##### 伏笔 vs 剧情事件：怎么区分
+
+| 判断 | 用 `event` | 用 `foreshadow` |
+| --- | --- | --- |
+| 事情在一段时间内发生并结束 | ✅ | |
+| 一个线索埋下后，隔了很多事件/章节才回收 | | ✅ |
+| 需要记录"埋设章节"和"预计回收章节" | | ✅ |
+| 需要跟踪状态（计划中/已埋设/正在推进/已回收） | | ✅ |
+
+##### 推荐的整体搭建顺序
+
+1. 先在**内容页**建好阶段与章节（只要名称即可）；
+2. 到大纲点「从内容生成结构」，自动得到 `stage` + `chapter` 节点和连线；
+3. 在两者之间**补 `event` 节点**，用 `contains` 连到阶段，用关联接口连到章节；
+4. 需要跨章线索时，再建 `foreshadow` 并关联相关章节。
+
+---
 
 ### 3.6 连线 OutlineEdge
 
 ```json
 {
   "id": "edg_...",
-  "sourceId": "nod_a",
-  "targetId": "nod_b",
-  "relation": "causal",
-  "label": "导致",
-  "description": "色当战败直接导致第二帝国崩溃。"
+  "sourceId": "nod_stage",
+  "targetId": "nod_event",
+  "relation": "contains",
+  "label": "包含",
+  "description": "高中三年这个阶段里，发生了这次打架。"
 }
 ```
 
-连线类型 `relation`：`sequence`（先后）、`causal`（因果）、`parallel`（并行）、`setup`（伏笔埋设）、`payoff`（伏笔回收）、`relation`（人物关系）、`custom`（自定义）。
+连线类型 `relation`：
+
+| 值 | 中文 | 什么时候用 | 方向 |
+| --- | --- | --- | --- |
+| `contains` | **包含** | 阶段包含事件 / 阶段包含章节 | 阶段 → 被包含者 |
+| `sequence` | 先后顺序 | A 之后发生 B（事件之间的时间顺序） | 先 → 后 |
+| `causal` | 因果推动 | A 导致 B | 因 → 果 |
+| `parallel` | 并行发展 | A 与 B 同时发生 | 任意 |
+| `setup` | 伏笔埋设 | A 为 B 埋下伏笔 | 埋设 → 回收 |
+| `payoff` | 伏笔回收 | A 回收 B 的伏笔 | 回收 ← 埋设 |
+| `relation` | 人物关系 | 人物之间的关联 | 任意 |
+| `custom` | 自定义 | 其他关系，用 `label` 说明 | 任意 |
+
+> 同一条连线可以额外填 `label`（显示在线上）与 `description`（详细说明）。
+> 相同两端 + 相同 `relation` 不会重复创建。
+
+---
 
 ### 3.7 导出 Export
 
@@ -256,6 +466,7 @@
 | GET | `/api/v1/version` | 获取软件与接口版本 |  |
 | GET | `/api/v1/openapi.json` | 获取 OpenAPI 3.1 定义 |  |
 | GET | `/api/v1/agent-guide` | 获取完整 Agent 接入文档（Markdown） |  |
+| GET | `/api/v1/outline-guide` | 获取大纲使用说明（Markdown） |  |
 | GET | `/api/v1/stats` | 获取全库统计 |  |
 | GET | `/api/v1/search` | 搜索章节名称与正文 |  |
 

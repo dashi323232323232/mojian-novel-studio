@@ -269,9 +269,19 @@ export function OutlinePage({
                 </button>
               ))}
               <div className="palette-hint">
-                点击或拖拽到画布创建节点。
+                <b style={{ color: 'var(--text-secondary)' }}>怎么用：</b>
                 <br />
-                拖动节点圆点连线，滚轮缩放，空白处平移。
+                故事阶段＝长期时间段（高中三年）
+                <br />
+                剧情事件＝阶段里的小事（打了一架）
+                <br />
+                具体章节＝写成正文的地方
+                <br />
+                伏笔＝隔很多章才回收的线索
+                <br />
+                <span style={{ color: 'var(--text-tertiary)' }}>
+                  用「包含」把阶段连到事件，用关联章节把事件连到章节。
+                </span>
               </div>
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <button className="btn btn-sm" onClick={() => canvasHandle.current?.zoomIn()}>

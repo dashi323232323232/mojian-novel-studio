@@ -4,6 +4,7 @@ import { NovelError, errorPayload, notFound, validationError } from '../errors';
 import { APP_VERSION, API_VERSION } from '@shared/constants';
 import { buildOpenApiSpec } from './openapi';
 import { buildAgentGuide } from './agentGuide';
+import { buildOutlineGuide } from './outlineGuide';
 import { asBoolean, asString } from '../util';
 
 export interface ApiRequestContext {
@@ -141,6 +142,11 @@ export class ApiRouter {
     this.add('GET', '/api/v1/agent-guide', (ctx) => buildAgentGuide({ core: c, baseUrl: ctx.baseUrl }), {
       auth: false,
       summary: '完整 Agent 接入文档（Markdown）',
+    });
+
+    this.add('GET', '/api/v1/outline-guide', (ctx) => buildOutlineGuide({ baseUrl: ctx.baseUrl }), {
+      auth: false,
+      summary: '大纲使用说明：阶段/事件/章节/伏笔语义与调用示例（Markdown）',
     });
 
     this.add(

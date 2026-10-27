@@ -183,6 +183,8 @@ interface RawApi {
     openapi(): Promise<Result<unknown>>;
     guide(): Promise<Result<string>>;
     copyGuide(): Promise<Result<{ copied: boolean; length: number }>>;
+    outlineGuide(): Promise<Result<string>>;
+    copyOutlineGuide(): Promise<Result<{ copied: boolean; length: number }>>;
     copyText(text: string): Promise<Result<{ copied: boolean; length: number }>>;
   };
   events: {

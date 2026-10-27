@@ -168,5 +168,7 @@ export const api = {
   openapi: () => unwrap(getApi().api.openapi()),
   guide: () => unwrap(getApi().api.guide()),
   copyGuide: () => unwrap(getApi().api.copyGuide()),
+  outlineGuide: () => unwrap(getApi().api.outlineGuide()),
+  copyOutlineGuide: () => unwrap(getApi().api.copyOutlineGuide()),
   copyText: (text: string) => unwrap(getApi().api.copyText(text)),
 };
