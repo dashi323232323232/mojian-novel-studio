@@ -55,13 +55,24 @@ fi
 # ---- 3) 推送到 GitHub：先推送归档分支/标签，再清理本地归档引用 ----
 # 注意：本地分支在 git reset 后可能已不存在，因此推送前重新创建归档引用。
 REMOTE_URL=$(git remote get-url origin 2>/dev/null || true)
+# 网络环境可能需要在「直连」与「本地代理」之间切换，自动探测一次
+PUSH_OPTS=""
+if command -v curl >/dev/null 2>&1; then
+  if ! curl -s -o /dev/null --max-time 8 https://github.com/ 2>/dev/null; then
+    if curl -s -o /dev/null --max-time 5 -x http://127.0.0.1:7897 https://github.com/ 2>/dev/null; then
+      echo "直连不可用，改用本地代理 127.0.0.1:7897"
+      PUSH_OPTS="-c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897"
+    fi
+  fi
+fi
+
 if [ -n "$REMOTE_URL" ]; then
   echo "正在推送 main 与归档分支 ${ARCHIVE_BRANCH} …"
-  git push -f origin "HEAD:refs/heads/main" 2>&1 | tail -2 || echo "推送 main 失败（可稍后手动重试）"
+  git $PUSH_OPTS push -f origin "HEAD:refs/heads/main" 2>&1 | tail -2 || echo "推送 main 失败（可稍后手动重试）"
   git branch -f "$ARCHIVE_BRANCH" "$SNAPSHOT" 2>/dev/null || true
   git tag -f "$VERSION" "$SNAPSHOT" >/dev/null 2>&1 || true
-  git push -f origin "refs/heads/${ARCHIVE_BRANCH}:refs/heads/${ARCHIVE_BRANCH}" 2>&1 | tail -2 || echo "推送归档分支失败"
-  git push -f origin "refs/tags/${VERSION}" 2>&1 | tail -2 || echo "推送标签失败"
+  git $PUSH_OPTS push -f origin "refs/heads/${ARCHIVE_BRANCH}:refs/heads/${ARCHIVE_BRANCH}" 2>&1 | tail -2 || echo "推送归档分支失败"
+  git $PUSH_OPTS push -f origin "refs/tags/${VERSION}" 2>&1 | tail -2 || echo "推送标签失败"
 
   # GitHub 已保存完整版本，本地删除归档分支与标签，保证本地只有两个提交
   git branch -D "$ARCHIVE_BRANCH" >/dev/null 2>&1 || true
@@ -74,4 +85,4 @@ echo "本地提交历史（只保留最新与上一个版本）："
 git --no-pager log --oneline -n 5
 echo
 echo "GitHub 归档版本（全部保留，可用 git ls-remote --tags origin 查看）："
-git ls-remote --tags origin 2>/dev/null | sed 's#.*refs/tags/#  #' | sort -V | tail -20 || true
+git $PUSH_OPTS ls-remote --tags origin 2>/dev/null | sed 's#.*refs/tags/#  #' | sort -V | tail -20 || true
