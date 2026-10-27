@@ -70,6 +70,7 @@ export function ChapterEditor({
   const [summary, setSummary] = useState(chapter.summary ?? '');
   const [summarySaving, setSummarySaving] = useState(false);
   const summaryTimer = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // 切换章节时同步简介
   useEffect(() => {
@@ -151,12 +152,14 @@ export function ChapterEditor({
     }
   }, [onDirtyChange]);
 
-  // 切换章节时加载
+  // 切换章节时加载，并把阅读/写作位置回到开头
   useEffect(() => {
     if (loadedChapterId === chapter.id) return;
     setContent('');
     contentRef.current = '';
     setDirty(false);
+    // 每个章节的滚动位置相互独立：切章后回到本章开头
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
     void load(chapter.id);
   }, [chapter.id, load, loadedChapterId]);
 
@@ -456,7 +459,7 @@ export function ChapterEditor({
           {headerRight}
         </div>
 
-        <div className="editor-scroll">
+        <div className="editor-scroll" ref={scrollRef}>
           {loading ? (
             <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-tertiary)' }}>
               <span className="spinner lg" /> 正在加载正文…
@@ -495,6 +498,7 @@ export function ChapterEditor({
                 </>
               ) : null}
               <CodeMirrorEditor
+                key={chapter.id}
                 value={content}
                 onChange={handleChange}
                 fontSize={settings.fontSize}

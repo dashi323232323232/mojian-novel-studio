@@ -337,6 +337,7 @@ npm run package        # 打包 Windows 应用
 | 结构生成桌面端（`tests/e2e/generate-structure.mjs`） | 5 / 5 通过 |
 | 大纲说明文档（`tests/api/outline-guide.test.ts`） | 8 / 8 通过 |
 | 大纲说明界面（`tests/e2e/outline-guide.mjs`） | 7 / 7 通过 |
+| 切换章节滚动重置（`tests/e2e/scroll-reset.mjs`） | 7 / 7 通过 |
 | 数据目录迁移（`tests/e2e/data-move.mjs`） | 5 / 5 通过 |
 | 打包版新功能（`tests/e2e/packed-v2.mjs`） | 7 / 7 通过 |
 | 语音适配器（`tests/unit/tts.test.ts`） | 3 / 3 通过（真实合成 WAV） |
