@@ -306,16 +306,60 @@ export interface EditorSettings {
   autoSave: boolean;
 }
 
+/**
+ * 关闭主窗口时的行为：
+ * - 'tray'：收缩到系统托盘，后台继续运行（默认）
+ * - 'quit'：直接退出软件
+ */
+export type CloseAction = 'tray' | 'quit';
+
+/** 实时朗读（边读边播，不落地音频文件）的偏好设置。 */
+export interface ReadingSettings {
+  /** 朗读引擎：web=系统实时语音；sapi=本地语音任务（生成文件后播放） */
+  engine: 'web' | 'sapi';
+  /** 语音服务：web 引擎对应浏览器语音，sapi/openai 对应本地/在线语音任务 */
+  provider: 'sapi' | 'openai';
+  /** 声音标识：web 引擎为语音名称，其他为音色 id */
+  voiceId: string;
+  /** 朗读语速倍率 0.5 ~ 2 */
+  rate: number;
+  /** 音调 0.5 ~ 1.6（仅 web 引擎） */
+  pitch: number;
+  /** 音量 0 ~ 100 */
+  volume: number;
+  /** 当前朗读的章节 */
+  chapterId: string | null;
+  /** 是否自动接着读下一章 */
+  autoNext: boolean;
+}
+
+/** 单章朗读进度：以字符偏移量保存，换引擎、换语速都能继续读。 */
+export interface ReadingProgress {
+  chapterId: string;
+  charIndex: number;
+  charTotal: number;
+  /** 进度百分比（0~1），便于列表直接展示 */
+  percent: number;
+  updatedAt: string;
+}
+
 export interface UiSettings {
   lastProjectId: string | null;
   editor: EditorSettings;
   audio: AudioProviderConfigPublic;
+  /** 关闭主窗口时的行为，默认收缩到系统托盘 */
+  closeAction: CloseAction;
+  /** 是否记住上次朗读位置，默认开启 */
+  rememberReading: boolean;
+  reading: ReadingSettings;
 }
 
 export interface ProjectUiSettings {
   outlineViewport: { x: number; y: number; zoom: number } | null;
   linkSplitRatio: number;
   lastChapterId: string | null;
+  /** 各章节的朗读进度（按 chapterId 索引） */
+  readingProgress: Record<string, ReadingProgress>;
 }
 
 export interface BackupInfo {
@@ -329,6 +373,16 @@ export interface BackupInfo {
 export interface AppSettingsSnapshot {
   ui: UiSettings;
   audio: AudioProviderConfigPublic;
+}
+
+/** 实时朗读引擎自检结果：用于音频页显示可用的系统声音。 */
+export interface ReadingEngineInfo {
+  /** 当前运行环境是否支持实时朗读 */
+  supported: boolean;
+  /** 是否检测到中文语音 */
+  hasChinese: boolean;
+  voices: Array<{ id: string; name: string; locale: string; local: boolean }>;
+  message?: string;
 }
 
 export interface MutationResult<T = unknown> {

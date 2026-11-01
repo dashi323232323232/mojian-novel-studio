@@ -14,7 +14,14 @@ const record = (name, ok, detail = '') => {
 async function launch() {
   const env = { ...process.env, DASHI_DATA_DIR: DATA_DIR };
   delete env.ELECTRON_RUN_AS_NODE;
-  const app = await electron.launch({ args: [path.resolve('.')], env, timeout: 60000 });
+  // 并行跑多个 e2e 时隔离 userData：主进程有单实例锁，共用 userData 会让第二个实例直接退出
+  const userData = path.join(os.tmpdir(), `dashi-ud-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  fs.mkdirSync(userData, { recursive: true });
+  const app = await electron.launch({
+    args: [path.resolve('.'), `--user-data-dir=${userData}`],
+    env,
+    timeout: 60000,
+  });
   const win = await app.firstWindow();
   await win.waitForSelector('.sidebar', { timeout: 20000 });
   await win.waitForTimeout(900);
@@ -178,15 +185,91 @@ async function main() {
   record('刷新后节点位置保持', tx(posBefore) === tx(posAfter), `${tx(posBefore)} vs ${tx(posAfter)}`);
   await win.screenshot({ path: 'tests/e2e/shots/12-outline-moved.png' });
 
+  // ---------- 音频制作：默认进入「实时朗读」 ----------
   await win.click('.nav-child:has-text("音频制作")');
-  const audioBtn = win.locator('button:has-text("制作音频")');
+  await win.waitForSelector('.page.audio-page.audio-page-v2', { timeout: 15000 });
+  await win.waitForSelector('.reader-layout', { timeout: 15000 });
+  record('音频页默认进入实时朗读', (await win.locator('.reader-layout').count()) > 0);
+
+  // 提词器要等正文载入后才有句子
+  await win
+    .waitForFunction(() => document.querySelectorAll('.reader-line').length >= 1, null, { timeout: 12000 })
+    .catch(() => undefined);
+  const lineCount = await win.locator('.reader-line').count();
+  record('实时朗读提词器已渲染句子', lineCount >= 1, lineCount + ' 行');
+
+  // 系统语音列表是异步提供的，轮询等待（每 500ms，最多 12 秒）
+  let voiceCount = 0;
+  for (let i = 0; i < 24; i++) {
+    voiceCount = await win.locator('.reader-select-voice option').count().catch(() => 0);
+    if (voiceCount > 0) break;
+    await win.waitForTimeout(500);
+  }
+  record('实时朗读已检测到系统语音', voiceCount > 0, voiceCount + ' 个声音');
+
+  // 点播放后应真实进入朗读：当前句高亮 + 已读时长增长
+  // 注意：长章节里读一句还不到 1%，整数百分比不会变，因此用 aria-valuetext 里的时长判断
+  const playBtn = win.locator('.reader-play');
+  const playable = (await playBtn.isDisabled().catch(() => true)) === false;
+  const readElapsed = async () => {
+    const text = await win.locator('.reader-progress').getAttribute('aria-valuetext').catch(() => '');
+    const match = /(\d+):(\d+)(?::(\d+))?\s*\//.exec(text ?? '');
+    if (!match) return 0;
+    const [, a, b, c] = match;
+    return c ? Number(a) * 3600 + Number(b) * 60 + Number(c) : Number(a) * 60 + Number(b);
+  };
+  if (voiceCount > 0 && playable) {
+    const before = await readElapsed();
+    await playBtn.click();
+    let activeOk = false;
+    let advanced = false;
+    for (let i = 0; i < 20; i++) {
+      await win.waitForTimeout(500);
+      if (!activeOk && (await win.locator('.reader-line.active').count()) > 0) activeOk = true;
+      if ((await readElapsed()) > before) {
+        advanced = true;
+        break;
+      }
+    }
+    record('点击播放后进入朗读状态', activeOk, activeOk ? '已出现当前句高亮' : '未出现当前句高亮');
+    record('朗读使已读时长前进', advanced, `${before}s → ${await readElapsed()}s`);
+    // 暂停，避免影响后面的断言
+    await playBtn.click().catch(() => undefined);
+    await win.waitForTimeout(300);
+  } else {
+    record('点击播放后进入朗读状态', false, `voice=${voiceCount} playable=${playable}`);
+    record('朗读使已读时长前进', false, '无法播放');
+  }
+
+  // ---------- 切到「离线音频」标签 ----------
+  await win.click('.seg-tab:has-text("离线音频")');
+  await win.waitForSelector('.audio-offline', { timeout: 15000 });
+  record('可切换到离线音频标签', (await win.locator('.audio-offline').count()) > 0);
+  const pickCount = await win.locator('.audio-offline .chapter-pick').count();
+  // 中间卡片先显示「正在检测可用声音…」，检测完成后才会渲染 .voice-card 或 .warn-note（互斥）
+  let voiceOrWarn = 0;
+  for (let i = 0; i < 24; i++) {
+    voiceOrWarn =
+      (await win.locator('.audio-offline .voice-card').count().catch(() => 0)) +
+      (await win.locator('.audio-offline .warn-note').count().catch(() => 0));
+    if (voiceOrWarn > 0) break;
+    await win.waitForTimeout(500);
+  }
+  const genBtnCount = await win.locator('.audio-offline button:has-text("生成离线音频")').count();
+  record(
+    '离线音频三块结构完整',
+    pickCount > 0 && voiceOrWarn > 0 && genBtnCount > 0,
+    '章节 ' + pickCount + ' 个，声音/提示 ' + voiceOrWarn + ' 个，生成按钮 ' + genBtnCount + ' 个',
+  );
+
+  const audioBtn = win.locator('.audio-offline button:has-text("生成离线音频")');
   let disabled = true;
   for (let i = 0; i < 24; i++) {
     await win.waitForTimeout(500);
     disabled = await audioBtn.isDisabled().catch(() => true);
     if (!disabled) break;
   }
-  record('音频生成按钮可用（已检测本地语音）', !disabled);
+  record('离线生成按钮可用（已检测本地语音）', !disabled);
   if (!disabled) {
     await audioBtn.click();
     await win.waitForTimeout(1000);
@@ -200,9 +283,15 @@ async function main() {
       if (badge.includes('失败')) break;
       await win.waitForTimeout(700);
     }
-    record('本地语音真实生成音频', succeeded);
+    record('本地语音真实生成离线音频', succeeded);
     if (succeeded) {
-      record('生成后可播放', (await win.locator('.job-row audio').count()) > 0);
+      // 新版界面用 new Audio() 播放，不再有 <audio> 元素；播放/暂停按钮可用即代表文件已落盘
+      const playReady = await win
+        .locator('.job-row .audio-player button')
+        .first()
+        .isEnabled()
+        .catch(() => false);
+      record('生成后可播放', playReady, '播放按钮可用（音频文件已落盘）');
       record('存在播放控制', (await win.locator('.job-row .audio-player button').count()) > 0);
     }
     await win.screenshot({ path: 'tests/e2e/shots/13-audio-done.png' });
@@ -219,6 +308,30 @@ async function main() {
   await win.waitForTimeout(1200);
   const testText = await win.locator('.info-note').filter({ hasText: 'HTTP' }).innerText().catch(() => '');
   record('连接测试成功', testText.includes('HTTP 200'), testText.slice(0, 60));
+
+  // ---------- 托盘与关闭行为 ----------
+  const windowState = await win.evaluate(async () => await window.dashi.app.windowState());
+  record(
+    '默认关闭行为收缩到托盘',
+    windowState?.data?.closeAction === 'tray',
+    'closeAction=' + (windowState?.data?.closeAction ?? '未知'),
+  );
+
+  await win.evaluate(async () => await window.dashi.app.hideToTray());
+  await win.waitForTimeout(700);
+  const hiddenVisible = await app.evaluate(async ({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows()[0];
+    return w ? w.isVisible() : null;
+  });
+  record('可隐藏到托盘（窗口不可见）', hiddenVisible === false, 'isVisible=' + hiddenVisible);
+
+  await win.evaluate(async () => await window.dashi.app.showWindow());
+  await win.waitForTimeout(700);
+  const shownVisible = await app.evaluate(async ({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows()[0];
+    return w ? w.isVisible() : null;
+  });
+  record('可从托盘恢复窗口', shownVisible === true, 'isVisible=' + shownVisible);
 
   await app.close();
   const failed = results.filter((r) => !r.ok);

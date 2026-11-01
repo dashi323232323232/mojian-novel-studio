@@ -27,6 +27,7 @@ import type {
   Project,
   ProjectStructure,
   ProjectUiSettings,
+  ReadingProgress,
   SearchHit,
   Stage,
   UiSettings,
@@ -75,6 +76,15 @@ interface RawApi {
     updateSettings(patch: Partial<UiSettings>): Promise<Result<UiSettings>>;
     projectSettings(projectId: string): Promise<Result<ProjectUiSettings>>;
     updateProjectSettings(projectId: string, patch: Partial<ProjectUiSettings>): Promise<Result<ProjectUiSettings>>;
+    readingProgress(
+      projectId: string,
+      progress: { chapterId: string; charIndex: number; charTotal: number; percent: number },
+    ): Promise<Result<ReadingProgress>>;
+    clearReadingProgress(projectId: string, chapterId: string): Promise<Result<{ cleared: boolean }>>;
+    hideToTray(): Promise<Result<{ hidden: boolean; trayActive: boolean }>>;
+    showWindow(): Promise<Result<{ shown: boolean }>>;
+    windowState(): Promise<Result<{ trayActive: boolean; closeAction: 'tray' | 'quit'; visible: boolean }>>;
+    onWindowShown(cb: () => void): () => void;
     exportText(options: { defaultName: string; content: string }): Promise<Result<{ canceled: boolean; filePath?: string }>>;
     onMenuAction(cb: (action: string) => void): () => void;
     onRequestClose(cb: () => void): () => void;

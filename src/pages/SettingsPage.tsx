@@ -13,9 +13,17 @@ import {
   ShieldCheck,
   FolderCog,
   ArrowRight,
+  MonitorDown,
+  Power,
+  Headphones,
+  Gauge,
+  Volume2,
+  Minimize2,
 } from 'lucide-react';
-import type { AppInfo, BackupInfo, UiSettings } from '@shared/types';
+import type { AppInfo, BackupInfo, ReadingSettings, UiSettings } from '@shared/types';
+import { CLOSE_ACTION_LABEL, READING_RATE_OPTIONS } from '@shared/constants';
 import { formatBytes, formatDateTime } from '@shared/text';
+import { loadVoices, sortVoices, type ReaderVoice } from '../lib/reading';
 import { api } from '../lib/api';
 import { toast } from '../lib/toast';
 import { ConfirmDialog } from '../components/Modal';
@@ -39,6 +47,8 @@ export function SettingsPage() {
     backupCount: number;
   } | null>(null);
   const [movingDir, setMovingDir] = useState(false);
+  const [voices, setVoices] = useState<ReaderVoice[]>([]);
+  const [windowState, setWindowState] = useState<{ trayActive: boolean; closeAction: 'tray' | 'quit' } | null>(null);
 
   const refresh = async () => {
     try {
@@ -61,7 +71,33 @@ export function SettingsPage() {
 
   useEffect(() => {
     void refresh();
+    void loadVoices().then((list) => setVoices(sortVoices(list)));
+    void api.windowState().then((s) => setWindowState({ trayActive: s.trayActive, closeAction: s.closeAction })).catch(() => undefined);
   }, []);
+
+  const updateGeneral = async (patch: Partial<UiSettings>) => {
+    if (!settings) return;
+    setSettings({ ...settings, ...patch });
+    try {
+      const saved = await api.updateSettings(patch);
+      setSettings(saved);
+      toast.success('设置已保存');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '保存设置失败');
+    }
+  };
+
+  const updateReading = async (patch: Partial<ReadingSettings>) => {
+    if (!settings) return;
+    const next = { ...settings, reading: { ...settings.reading, ...patch } };
+    setSettings(next);
+    try {
+      const saved = await api.updateSettings({ reading: next.reading });
+      setSettings(saved);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '保存朗读设置失败');
+    }
+  };
 
   const updateEditor = async (patch: Partial<UiSettings['editor']>) => {
     if (!settings) return;
@@ -145,6 +181,176 @@ export function SettingsPage() {
       </div>
       <div className="settings-page">
         <div className="settings-grid">
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <MonitorDown size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                关闭与托盘
+              </span>
+              <span className="badge" style={{ background: 'var(--bg-subtle)', color: 'var(--text-tertiary)' }}>
+                {windowState?.trayActive ? '托盘已启用' : '托盘未启用'}
+              </span>
+            </div>
+            <div className="settings-card-body">
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label className="field-label">点击窗口关闭按钮时</label>
+                <div className="radio-cards">
+                  {(['tray', 'quit'] as const).map((mode) => (
+                    <label
+                      key={mode}
+                      className={`radio-card${(settings?.closeAction ?? 'tray') === mode ? ' active' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="closeAction"
+                        checked={(settings?.closeAction ?? 'tray') === mode}
+                        onChange={() => void updateGeneral({ closeAction: mode })}
+                      />
+                      <span className="radio-card-body">
+                        <span className="radio-card-title">
+                          {mode === 'tray' ? <Minimize2 size={13} /> : <Power size={13} />}
+                          {CLOSE_ACTION_LABEL[mode].label}
+                        </span>
+                        <span className="radio-card-desc">{CLOSE_ACTION_LABEL[mode].description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-sm"
+                  onClick={async () => {
+                    try {
+                      const r = await api.hideToTray();
+                      toast.success(r.trayActive ? '已收缩到系统托盘，点击托盘图标可恢复窗口' : '已收缩窗口');
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : '收缩到托盘失败');
+                    }
+                  }}
+                >
+                  <Minimize2 size={13} /> 立即收缩到托盘
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={async () => {
+                    const s = await api.windowState().catch(() => null);
+                    setWindowState(s ? { trayActive: s.trayActive, closeAction: s.closeAction } : null);
+                    toast.info(s?.trayActive ? '系统托盘中已有本软件图标' : '尚未创建托盘图标，执行一次关闭或点击左侧按钮即可');
+                  }}
+                >
+                  检查托盘状态
+                </button>
+              </div>
+              <div className="field-hint" style={{ marginTop: 8 }}>
+                选择「收缩到系统托盘」时，关闭窗口不会结束进程，实时朗读与离线音频任务会继续运行；
+                需要彻底退出请右键托盘图标选择「退出软件」，或在菜单「文件 → 退出」。
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <Headphones size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                实时朗读
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>音频制作默认使用该配置</span>
+            </div>
+            <div className="settings-card-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label className="field-label">
+                    <Gauge size={12} /> 默认语速：{settings?.reading.rate ?? 1}×
+                  </label>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={2}
+                    step={0.05}
+                    value={settings?.reading.rate ?? 1}
+                    onChange={(e) => void updateReading({ rate: Number(e.target.value) })}
+                    style={{ accentColor: 'var(--accent)' }}
+                  />
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {READING_RATE_OPTIONS.filter((r) => r <= 1.5).map((r) => (
+                      <button
+                        key={r}
+                        className={`reader-rate-preset${Math.abs((settings?.reading.rate ?? 1) - r) < 0.01 ? ' active' : ''}`}
+                        onClick={() => void updateReading({ rate: r })}
+                      >
+                        {r}×
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label className="field-label">
+                    <Volume2 size={12} /> 音量：{settings?.reading.volume ?? 100}
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={settings?.reading.volume ?? 100}
+                    onChange={(e) => void updateReading({ volume: Number(e.target.value) })}
+                    style={{ accentColor: 'var(--accent)' }}
+                  />
+                  <label className="field-label" style={{ marginTop: 6 }}>
+                    音调：{(settings?.reading.pitch ?? 1).toFixed(2)}
+                  </label>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={1.6}
+                    step={0.05}
+                    value={settings?.reading.pitch ?? 1}
+                    onChange={(e) => void updateReading({ pitch: Number(e.target.value) })}
+                    style={{ accentColor: 'var(--accent)' }}
+                  />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label className="field-label">默认朗读声音</label>
+                  <select
+                    className="select"
+                    value={settings?.reading.voiceId ?? ''}
+                    onChange={(e) => void updateReading({ voiceId: e.target.value })}
+                  >
+                    <option value="">自动（优先中文）</option>
+                    {voices.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                        {/^zh/i.test(v.lang) ? ' · 中文' : ` · ${v.lang}`}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="field-hint">
+                    共检测到 {voices.length} 个系统语音，{voices.filter((v) => /^zh/i.test(v.lang)).length} 个中文语音。
+                  </div>
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label className="field-label">朗读习惯</label>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={settings?.rememberReading ?? true}
+                      onChange={(e) => void updateGeneral({ rememberReading: e.target.checked })}
+                    />
+                    <span>记住每章听到的位置（下次打开继续）</span>
+                  </label>
+                  <label className="checkbox-row" style={{ marginTop: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={settings?.reading.autoNext ?? true}
+                      onChange={(e) => void updateReading({ autoNext: e.target.checked })}
+                    />
+                    <span>一章读完后自动接着读下一章</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="settings-card">
             <div className="settings-card-head">
               <span>

@@ -3,9 +3,10 @@ import type {
   EdgeRelation,
   ForeshadowStatus,
   NodeType,
+  ReadingSettings,
 } from './types';
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 export const API_VERSION = 'v1';
 export const API_PREFIX = '/api/v1';
 export const DEFAULT_API_PORT = 45871;
@@ -108,6 +109,27 @@ export const DEFAULT_EDITOR_SETTINGS = {
   fontFamily: 'serif' as const,
   showWordCount: true,
   autoSave: true,
+};
+
+/** 实时朗读默认偏好：系统语音、中文、正常语速。 */
+export const DEFAULT_READING_SETTINGS: ReadingSettings = {
+  engine: 'web',
+  provider: 'sapi',
+  voiceId: '',
+  rate: 1,
+  pitch: 1,
+  volume: 100,
+  chapterId: null,
+  autoNext: true,
+};
+
+/** 语速可选项（倍率）。拖动进度条或改语速都不会重置当前朗读位置。 */
+export const READING_RATE_OPTIONS = [0.5, 0.6, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2] as const;
+
+/** 关闭行为说明文案，设置页与提示共用。 */
+export const CLOSE_ACTION_LABEL: Record<'tray' | 'quit', { label: string; description: string }> = {
+  tray: { label: '收缩到系统托盘（默认）', description: '关闭窗口后程序留在托盘，朗读与后台任务继续运行。' },
+  quit: { label: '直接退出软件', description: '关闭窗口即结束进程，未保存的修改会先提示保存。' },
 };
 
 export const DEFAULT_PROJECT_COLORS = [
