@@ -25,6 +25,7 @@ import type {
   Project,
   ProjectStructure,
   ProjectUiSettings,
+  ReadingProgress,
   SearchHit,
   Stage,
   UiSettings,
@@ -57,6 +58,15 @@ export const api = {
   projectSettings: (projectId: string) => unwrap(getApi().app.projectSettings(projectId)),
   updateProjectSettings: (projectId: string, patch: Partial<ProjectUiSettings>) =>
     unwrap(getApi().app.updateProjectSettings(projectId, patch)),
+  readingProgress: (
+    projectId: string,
+    progress: { chapterId: string; charIndex: number; charTotal: number; percent: number },
+  ): Promise<ReadingProgress> => unwrap(getApi().app.readingProgress(projectId, progress)),
+  clearReadingProgress: (projectId: string, chapterId: string) =>
+    unwrap(getApi().app.clearReadingProgress(projectId, chapterId)),
+  hideToTray: () => unwrap(getApi().app.hideToTray()),
+  showWindow: () => unwrap(getApi().app.showWindow()),
+  windowState: () => unwrap(getApi().app.windowState()),
   exportText: (defaultName: string, content: string) =>
     unwrap(getApi().app.exportText({ defaultName, content })),
 

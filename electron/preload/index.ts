@@ -26,6 +26,13 @@ const api = {
     projectSettings: (projectId: string) => ipcRenderer.invoke('app:projectSettings', projectId),
     updateProjectSettings: (projectId: string, patch: unknown) =>
       ipcRenderer.invoke('app:updateProjectSettings', projectId, patch),
+    readingProgress: (projectId: string, progress: unknown) =>
+      ipcRenderer.invoke('app:readingProgress', projectId, progress),
+    clearReadingProgress: (projectId: string, chapterId: string) =>
+      ipcRenderer.invoke('app:clearReadingProgress', projectId, chapterId),
+    hideToTray: () => ipcRenderer.invoke('app:hideToTray'),
+    showWindow: () => ipcRenderer.invoke('app:showWindow'),
+    windowState: () => ipcRenderer.invoke('app:windowState'),
     exportText: (options: { defaultName: string; content: string }) =>
       ipcRenderer.invoke('app:exportText', options),
     onMenuAction: (cb: (action: string) => void) => {
@@ -37,6 +44,11 @@ const api = {
       const listener = () => cb();
       ipcRenderer.on('app:requestClose', listener);
       return () => ipcRenderer.removeListener('app:requestClose', listener);
+    },
+    onWindowShown: (cb: () => void) => {
+      const listener = () => cb();
+      ipcRenderer.on('app:windowShown', listener);
+      return () => ipcRenderer.removeListener('app:windowShown', listener);
     },
   },
   export: {

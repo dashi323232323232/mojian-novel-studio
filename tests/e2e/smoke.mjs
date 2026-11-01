@@ -134,10 +134,11 @@ async function main() {
   await win.waitForTimeout(1200);
   record('刷新后大纲节点仍在', (await win.locator('.node-card').count()) >= 2);
 
-  // 12. 音频页
+  // 12. 音频页（默认实时朗读）
   await win.click('.nav-child:has-text("音频制作")');
-  await win.waitForTimeout(1200);
+  await win.waitForTimeout(1600);
   record('进入音频页', (await win.locator('.audio-page').count()) > 0);
+  record('音频页默认为实时朗读', (await win.locator('.reader-layout').count()) > 0);
   await win.screenshot({ path: path.join(root, 'tests/e2e/shots/06-audio.png') });
 
   // 13. Agent 页

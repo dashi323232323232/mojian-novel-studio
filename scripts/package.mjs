@@ -95,9 +95,15 @@ const paths = await packager({
     /^\/README\.md$/,
     /^\/install\.log$/,
     /^\/tmp-/,
-    /^\/assets($|\/)/,
+    // assets 不能排除：托盘图标与窗口图标都从这里读取
   ],
 });
+
+// 托盘图标与窗口图标依赖 assets/，打包后若缺失会导致托盘图标空白，这里做一次校验
+const assetsDir = path.join(root, 'assets');
+if (!fs.existsSync(path.join(assetsDir, 'icon.ico')) && !fs.existsSync(path.join(assetsDir, 'icon.png'))) {
+  console.warn('警告：assets/icon.ico 与 assets/icon.png 都不存在，托盘将使用内置兜底图标。');
+}
 
 // 打包完成后清理临时 zip（节省约 150MB；下次打包会按需重建）
 try {

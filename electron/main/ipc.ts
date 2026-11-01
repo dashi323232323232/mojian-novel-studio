@@ -9,7 +9,7 @@ import { buildOutlineGuide } from './api/outlineGuide';
 import { buildOpenApiSpec } from './api/openapi';
 import { errorPayload, NovelError } from './errors';
 import { describeDataLocation, migrateDataDir, resetDataDir, switchDataDir } from './dataLocation';
-import type { ProjectUiSettings, UiSettings } from '@shared/types';
+import type { ProjectUiSettings, ReadingProgress, UiSettings } from '@shared/types';
 
 export interface IpcDeps {
   core: AppCore;
@@ -20,6 +20,12 @@ export interface IpcDeps {
   isDirty: () => boolean;
   cancelClose: () => void;
   requestClose: () => void;
+  /** 主动把主窗口收进系统托盘 */
+  hideToTray: () => void;
+  /** 从托盘恢复主窗口 */
+  showWindow: () => void;
+  /** 托盘是否已创建（用于设置页提示） */
+  isTrayActive: () => boolean;
 }
 
 function wrap<R>(fn: (...args: any[]) => R | Promise<R>): (...args: any[]) => Promise<{ ok: true; data: R } | { ok: false; error: ReturnType<typeof errorPayload>['error'] }> {
@@ -89,6 +95,22 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.on('app:setDirty', (_e, dirty: boolean) => deps.markDirty(Boolean(dirty)));
   ipcMain.on('app:closeConfirmed', () => deps.requestClose());
   ipcMain.on('app:cancelClose', () => deps.cancelClose());
+  ipcMain.handle('app:hideToTray', wrap(() => {
+    deps.hideToTray();
+    return { hidden: true, trayActive: deps.isTrayActive() };
+  }));
+  ipcMain.handle('app:showWindow', wrap(() => {
+    deps.showWindow();
+    return { shown: true };
+  }));
+  ipcMain.handle(
+    'app:windowState',
+    wrap(() => ({
+      trayActive: deps.isTrayActive(),
+      closeAction: core.settings.getCloseAction(),
+      visible: Boolean(deps.getWindow()?.isVisible()),
+    })),
+  );
   ipcMain.handle(
     'app:isDirty',
     wrap(() => ({ dirty: deps.isDirty() })),
@@ -192,6 +214,19 @@ export function registerIpc(deps: IpcDeps): void {
     wrap((_e, projectId: string, patch: Partial<ProjectUiSettings>) =>
       core.settings.updateProjectSettings(projectId, patch ?? {}),
     ),
+  );
+  ipcMain.handle(
+    'app:readingProgress',
+    wrap((_e, projectId: string, progress: Omit<ReadingProgress, 'updatedAt'>) =>
+      core.settings.recordReadingProgress(projectId, progress),
+    ),
+  );
+  ipcMain.handle(
+    'app:clearReadingProgress',
+    wrap((_e, projectId: string, chapterId: string) => {
+      core.settings.clearReadingProgress(projectId, chapterId);
+      return { cleared: true };
+    }),
   );
   ipcMain.handle(
     'app:exportText',
