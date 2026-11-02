@@ -1,0 +1,438 @@
+/* ============================================================
+   朗读迷你弹窗（独立 BrowserWindow，目标可用尺寸 420 × 560）
+   类名前缀统一 mr-；颜色一律走 global.css 的 CSS 变量，与主界面一致。
+   整页不出现页面级滚动条：高度用 100dvh 撑满，设置区在极小窗口下自行滚动。
+   ============================================================ */
+
+.mr-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  padding: 10px 14px 8px;
+  gap: 8px;
+  user-select: none;
+}
+
+/* ---------- 顶部标题行 ---------- */
+.mr-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.mr-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mr-title-sep {
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+.mr-icon-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.mr-icon-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.mr-icon-btn:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+/* ---------- 中部：大号百分比 + 可拖动进度条（不显示正文） ---------- */
+.mr-stage {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.mr-percent {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.mr-percent-unit {
+  font-size: 17px;
+  font-weight: 600;
+  margin-left: 2px;
+  color: var(--accent);
+  opacity: 0.7;
+}
+.mr-clock {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.mr-clock-sep {
+  opacity: 0.7;
+}
+
+.mr-progress {
+  width: 100%;
+  margin-top: 12px;
+  padding: 6px 0;
+  cursor: pointer;
+  outline: none;
+  touch-action: none;
+  border-radius: 6px;
+}
+.mr-progress:focus-visible .mr-track {
+  box-shadow: 0 0 0 3px rgba(79, 91, 213, 0.18);
+}
+.mr-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  transition: box-shadow 0.12s ease;
+}
+.mr-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #7a63e8);
+  transition: width 0.08s linear;
+}
+.mr-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+  transition: left 0.08s linear, transform 0.1s ease;
+}
+.mr-progress:hover .mr-thumb,
+.mr-progress:focus-visible .mr-thumb {
+  transform: scale(1.15);
+}
+.mr-progress:active .mr-thumb {
+  transform: scale(1.25);
+  cursor: grabbing;
+}
+
+.mr-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+/* ---------- 播放控制 ---------- */
+.mr-controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 2px 0 4px;
+}
+.mr-skip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.mr-skip:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.mr-skip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.mr-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(79, 91, 213, 0.3);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.mr-play:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+.mr-play:active:not(:disabled) {
+  transform: translateY(0);
+}
+.mr-play:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ---------- 设置区 ---------- */
+.mr-settings {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+.mr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 28px;
+}
+.mr-label {
+  flex: 0 0 46px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.mr-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+  outline: none;
+  text-overflow: ellipsis;
+}
+.mr-select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 91, 213, 0.12);
+}
+.mr-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mr-rate-row {
+  gap: 6px;
+}
+.mr-num {
+  width: 66px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  outline: none;
+}
+.mr-num:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 91, 213, 0.12);
+}
+.mr-unit {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.mr-presets {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  padding-left: 54px;
+}
+.mr-preset {
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.mr-preset:hover {
+  background: var(--bg-subtle);
+}
+.mr-preset.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.mr-volume {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.mr-volume-value {
+  flex: 0 0 26px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 提示 ---------- */
+.mr-warn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid #f0dcbb;
+  border-radius: 7px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.mr-warn-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mr-warn-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--warning);
+  cursor: pointer;
+}
+.mr-warn-close:hover {
+  background: rgba(164, 95, 10, 0.14);
+}
+
+/* ---------- 底部 ---------- */
+.mr-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mr-saved {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.mr-close {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.mr-close:hover {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+
+/* 迷你窗口里的 toast 更窄一些，避免挡住进度条 */
+.mr-root .toast-host {
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+}
+.mr-root .toast {
+  max-width: 100%;
+}
+
+/* ---------- 极小窗口兜底（例如用户把弹窗拉到 360 宽） ---------- */
+@media (max-width: 400px) {
+  .mr-root {
+    padding: 8px 10px 6px;
+  }
+  .mr-percent {
+    font-size: 34px;
+  }
+  .mr-presets {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding-left: 0;
+  }
+  .mr-play {
+    width: 46px;
+    height: 46px;
+  }
+}

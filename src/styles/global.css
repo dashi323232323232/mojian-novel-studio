@@ -2778,3 +2778,133 @@ textarea {
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 42px, #000 calc(100% - 42px), transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0, #000 42px, #000 calc(100% - 42px), transparent 100%);
 }
+
+/* ---------- 多实例 ---------- */
+.instance-btn {
+  flex: 0 0 auto;
+}
+.instance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 168px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px;
+  background: var(--bg-subtle);
+}
+.instance-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  font-size: 12.5px;
+}
+.instance-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
+.instance-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.instance-time {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+
+/* ---------- 自绘标题栏 ----------
+ * 系统按钮（最小化/最大化/关闭）由 Electron 的 titleBarOverlay 绘制在右侧。
+ * env(titlebar-area-x/width/height) 给出可安全绘制的区域，
+ * 因此按钮可以精确排在系统按钮的左侧，而不是浮在内容区里。
+ */
+:root {
+  --titlebar-height: 36px;
+}
+
+.app-titlebar {
+  position: fixed;
+  top: 0;
+  left: env(titlebar-area-x, 0px);
+  width: env(titlebar-area-width, 100vw);
+  height: env(titlebar-area-height, var(--titlebar-height));
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 0 12px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.app-titlebar-drag {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+.app-titlebar-title {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+.app-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+}
+
+.app-titlebar-actions .icon-btn {
+  width: 28px;
+  height: 24px;
+  border-radius: 5px;
+  color: var(--text-secondary);
+}
+
+.app-titlebar-actions .icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* 主界面为标题栏让出高度 */
+.app-shell {
+  padding-top: var(--titlebar-height);
+  box-sizing: border-box;
+}
+
+.sidebar {
+  height: calc(100vh - var(--titlebar-height));
+}
+
+.app-main {
+  height: calc(100vh - var(--titlebar-height));
+}
+
+/* 迷你朗读窗口同样使用自绘标题栏，但不需要实例按钮 */
+.mr-root {
+  padding-top: 0;
+}

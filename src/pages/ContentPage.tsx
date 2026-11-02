@@ -24,8 +24,27 @@ import { api } from '../lib/api';
 import { toast } from '../lib/toast';
 import { useAppStore } from '../store/app';
 import { Modal, ConfirmDialog } from '../components/Modal';
+import { ChapterTree, groupCollapseKey, volumeCollapseKey } from '../components/ChapterTree';
+import { buildChapterTree } from '../lib/chapterTree';
 import { DropdownMenu, EmptyState } from '../components/ui';
 import { formatRelative } from '@shared/text';
+
+/**
+ * 最近一次打开的章节 id（存 sessionStorage）：内容页在「编辑页 ↔ 目录」之间会反复卸载重挂载，
+ * 组件内 state/ref 与模块变量都可能因刷新而丢失，因此持久化到 sessionStorage，
+ * 用于返回目录时自动展开该章所在的卷与 20 章分组。
+ */
+const LAST_CHAPTER_KEY = 'dashi.content.lastChapterId';
+
+function readLastVisitedChapterId(): string | null {
+  try {
+    return sessionStorage.getItem(LAST_CHAPTER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+
 
 interface Props {
   project: Project;
@@ -61,6 +80,28 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+
+  /**
+   * 自动展开「刚编辑过的那一章」所在的卷与 20 章分组。
+   * 从编辑页返回时目录会重新挂载、折叠状态被重置，若不展开，用户会看到
+   * 一个全部收缩、找不到刚才章节的列表。
+   * 只有在章节数据已经就绪（能找到该章）时才展开，避免数据未刷新时静默失败。
+   */
+  useEffect(() => {
+    const lastId = readLastVisitedChapterId();
+    if (!lastId) return;
+    const tree = buildChapterTree(structure.stages, structure.chapters);
+    const volume = tree.find((v) => v.groups.some((g) => g.chapters.some((c) => c.id === lastId)));
+    const group = volume?.groups.find((g) => g.chapters.some((c) => c.id === lastId));
+    if (!volume || !group) return;
+    setCollapsed((prev) => {
+      const volumeKey = volumeCollapseKey(volume.id);
+      const groupKey = groupCollapseKey(group.key);
+      // 已经是展开状态就不重复 set，避免多余渲染
+      if (prev[volumeKey] === false && prev[groupKey] === false) return prev;
+      return { ...prev, [volumeKey]: false, [groupKey]: false };
+    });
+  }, [structure]);
 
   const chaptersByStage = useMemo(() => {
     const map = new Map<string, Chapter[]>();
@@ -473,212 +514,75 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
           />
         ) : (
           <>
-            {structure.stages.map((stage) => {
-              const chapters = chaptersByStage.get(stage.id) ?? [];
-              const isCollapsed = collapsed[stage.id] ?? false;
-              const selectedInStage = chapters.filter((c) => selected.has(c.id)).length;
-              const allInStageSelected = chapters.length > 0 && selectedInStage === chapters.length;
-              return (
-                <section className="stage-block" key={stage.id}>
-                  <header className="stage-head" onClick={() => setCollapsed({ ...collapsed, [stage.id]: !isCollapsed })}>
-                    <span style={{ color: 'var(--text-tertiary)', display: 'flex' }}>
-                      {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-                    </span>
-                    {selectMode ? (
-                      <button
-                        className="icon-btn"
-                        title={allInStageSelected ? '取消全选本阶段' : '全选本阶段章节'}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          selectStage(stage.id, !allInStageSelected);
-                        }}
-                      >
-                        {allInStageSelected ? <CheckSquare size={14} /> : <Square size={14} />}
-                      </button>
-                    ) : null}
-                    <span className="stage-name">
-                      <Layers size={14} style={{ color: 'var(--accent)' }} />
-                      {stage.name}
-                      <span className="stage-meta">
-                        {chapters.length} 章 · {chapters.reduce((s, c) => s + c.wordCount, 0)} 字
-                        {selectMode && selectedInStage ? ` · 已选 ${selectedInStage}` : ''}
-                      </span>
-                    </span>
-                    <div className="stage-actions" onClick={(e) => e.stopPropagation()}>
-                      <button className="icon-btn" title="在此阶段新建章节" onClick={() => openAddMenu(stage.id)}>
-                        <Plus size={15} />
-                      </button>
-                      <button className="icon-btn" title="编辑阶段" onClick={() => setStageModal({ mode: 'rename', stage })}>
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        className="icon-btn"
-                        title="删除阶段"
-                        onClick={() => {
-                          setDeleteStage(stage);
-                          setDeleteStageAction('move');
-                          setDeleteStageTarget(stageOptions[0]?.id ?? '');
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </header>
-                  {stage.summary && !isCollapsed ? (
-                    <div style={{ padding: '7px 16px 3px 40px', fontSize: 11.5, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
-                      {stage.summary}
-                    </div>
-                  ) : null}
-                  {!isCollapsed ? (
-                    <div className="chapter-list">
-                      {chapters.length === 0 ? (
-                        <div className="stage-empty">
-                          <FileText size={14} /> 此阶段还没有章节。
-                          <button className="btn btn-sm" style={{ marginLeft: 8 }} onClick={() => openAddMenu(stage.id)}>
-                            新建章节
-                          </button>
-                        </div>
-                      ) : (
-                        chapters.map((chapter, index) => (
-                          <div
-                            className={`chapter-row${selected.has(chapter.id) ? ' selected-row' : ''}`}
-                            key={chapter.id}
-                            onClick={() => (selectMode ? toggleChapter(chapter.id) : onOpenChapter(chapter.id))}
-                            title={chapter.name}
-                          >
-                            {selectMode ? (
-                              <span style={{ display: 'flex', color: selected.has(chapter.id) ? 'var(--accent)' : 'var(--text-tertiary)', flex: '0 0 auto' }}>
-                                {selected.has(chapter.id) ? <CheckSquare size={15} /> : <Square size={15} />}
-                              </span>
-                            ) : (
-                              <span className="chapter-index">{String(index + 1).padStart(2, '0')}</span>
-                            )}
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span className="chapter-title" style={{ display: 'block' }}>
-                                {chapter.name}
-                              </span>
-                              {chapter.summary ? (
-                                <span
-                                  style={{
-                                    display: 'block',
-                                    fontSize: 11,
-                                    color: 'var(--text-tertiary)',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    marginTop: 1,
-                                  }}
-                                >
-                                  {chapter.summary}
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="chapter-words">{chapter.wordCount} 字</span>
-                            <span className="chapter-words" style={{ width: 62, textAlign: 'right' }}>
-                              {chapter.contentUpdatedAt ? formatRelative(chapter.contentUpdatedAt) : '未开始'}
-                            </span>
-                            {!selectMode ? (
-                              <span className="chapter-actions" onClick={(e) => e.stopPropagation()}>
-                                <DropdownMenu
-                                  label="章节操作"
-                                  align="right"
-                                  items={[
-                                    {
-                                      key: 'open',
-                                      label: '打开编辑',
-                                      icon: <Pencil size={14} />,
-                                      onClick: () => onOpenChapter(chapter.id),
-                                    },
-                                    {
-                                      key: 'rename',
-                                      label: '编辑名称与简介',
-                                      icon: <Pencil size={14} />,
-                                      onClick: () => setChapterModal({ mode: 'rename', chapter }),
-                                    },
-                                    {
-                                      key: 'move',
-                                      label: '移动到其他阶段',
-                                      icon: <ArrowRightLeft size={14} />,
-                                      onClick: () => setMoveChapter(chapter),
-                                    },
-                                    {
-                                      key: 'up',
-                                      label: '上移',
-                                      icon: <ArrowUp size={14} />,
-                                      disabled: index === 0,
-                                      onClick: () => void shiftChapter(chapter, -1),
-                                    },
-                                    {
-                                      key: 'down',
-                                      label: '下移',
-                                      icon: <ArrowDown size={14} />,
-                                      disabled: index === chapters.length - 1,
-                                      onClick: () => void shiftChapter(chapter, 1),
-                                    },
-                                    'sep',
-                                    {
-                                      key: 'export',
-                                      label: '导出本章为 TXT',
-                                      icon: <Copy size={14} />,
-                                      onClick: () => void exportChapter(chapter),
-                                    },
-                                    {
-                                      key: 'delete',
-                                      label: '删除章节',
-                                      icon: <Trash2 size={14} />,
-                                      danger: true,
-                                      onClick: () => setDeleteChapter(chapter),
-                                    },
-                                  ]}
-                                >
-                                  <MoreHorizontal size={15} />
-                                </DropdownMenu>
-                              </span>
-                            ) : null}
-                          </div>
-                        ))
-                      )}
-                      {!selectMode ? (
-                        <button className="add-chapter-row" onClick={() => openAddMenu(stage.id)}>
-                          <Plus size={13} /> 新建章节
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </section>
-              );
-            })}
-
-            {unassigned.length ? (
-              <section className="stage-block">
-                <header className="stage-head">
-                  <span style={{ width: 15 }} />
-                  <span className="stage-name">未分阶段</span>
-                  <span className="stage-meta" style={{ marginLeft: 10 }}>
-                    {unassigned.length} 章
+          <ChapterTree
+            structure={structure}
+            selectedChapterId={selectMode ? null : undefined}
+            collapsed={collapsed}
+            onCollapsedChange={setCollapsed}
+            keyword={search.trim()}
+            onSelectChapter={(chapterId) => {
+              if (selectMode) {
+                toggleChapter(chapterId);
+                return;
+              }
+              onOpenChapter(chapterId);
+            }}
+            renderVolumeFooter={(volumeId) =>
+              selectMode ? null : (
+                <button
+                  className="add-chapter-row"
+                  onClick={() => openAddMenu(volumeId === '__unassigned__' ? null : volumeId)}
+                >
+                  <Plus size={13} /> 新建章节
+                </button>
+              )
+            }
+            renderMeta={(chapter) =>
+              selectMode ? (
+                <span style={{ display: 'flex', color: selected.has(chapter.id) ? 'var(--accent)' : 'var(--text-tertiary)' }}>
+                  {selected.has(chapter.id) ? <CheckSquare size={15} /> : <Square size={15} />}
+                </span>
+              ) : (
+                <>
+                  <span className="chapter-words">{chapter.wordCount} 字</span>
+                  <span className="chapter-words" style={{ width: 62, textAlign: 'right' }}>
+                    {chapter.contentUpdatedAt ? formatRelative(chapter.contentUpdatedAt) : '未开始'}
                   </span>
-                </header>
-                <div className="chapter-list">
-                  {unassigned.map((chapter) => (
-                    <div
-                      className="chapter-row"
-                      key={chapter.id}
-                      onClick={() => (selectMode ? toggleChapter(chapter.id) : onOpenChapter(chapter.id))}
-                    >
-                      {selectMode ? (
-                        <span style={{ display: 'flex', color: selected.has(chapter.id) ? 'var(--accent)' : 'var(--text-tertiary)' }}>
-                          {selected.has(chapter.id) ? <CheckSquare size={15} /> : <Square size={15} />}
-                        </span>
-                      ) : (
-                        <span className="chapter-index">—</span>
-                      )}
-                      <span className="chapter-title">{chapter.name}</span>
-                      <span className="chapter-words">{chapter.wordCount} 字</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+                </>
+              )
+            }
+            renderActions={(chapter) =>
+              selectMode ? null : (
+                <DropdownMenu
+                  label="章节操作"
+                  align="right"
+                  items={[
+                    { key: 'open', label: '打开编辑', icon: <Pencil size={14} />, onClick: () => onOpenChapter(chapter.id) },
+                    { key: 'rename', label: '编辑名称与简介', icon: <Pencil size={14} />, onClick: () => setChapterModal({ mode: 'rename', chapter }) },
+                    { key: 'move', label: '移动到其他阶段', icon: <ArrowRightLeft size={14} />, onClick: () => setMoveChapter(chapter) },
+                    { key: 'up', label: '上移', icon: <ArrowUp size={14} />, onClick: () => void shiftChapter(chapter, -1) },
+                    { key: 'down', label: '下移', icon: <ArrowDown size={14} />, onClick: () => void shiftChapter(chapter, 1) },
+                    'sep',
+                    { key: 'export', label: '导出本章为 TXT', icon: <Copy size={14} />, onClick: () => void exportChapter(chapter) },
+                    { key: 'delete', label: '删除章节', icon: <Trash2 size={14} />, danger: true, onClick: () => setDeleteChapter(chapter) },
+                  ]}
+                >
+                  <MoreHorizontal size={15} />
+                </DropdownMenu>
+              )
+            }
+          />
+
+          {!selectMode ? (
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              <button className="btn btn-sm" onClick={() => setStageModal({ mode: 'create' })}>
+                <Layers size={13} /> 新建卷（阶段）
+              </button>
+              <button className="btn btn-sm" onClick={() => openAddMenu()}>
+                <Plus size={13} /> 新建章节
+              </button>
+            </div>
+          ) : null}
           </>
         )}
       </div>

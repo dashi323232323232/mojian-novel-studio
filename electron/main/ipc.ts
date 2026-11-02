@@ -9,7 +9,8 @@ import { buildOutlineGuide } from './api/outlineGuide';
 import { buildOpenApiSpec } from './api/openapi';
 import { errorPayload, NovelError } from './errors';
 import { describeDataLocation, migrateDataDir, resetDataDir, switchDataDir } from './dataLocation';
-import type { ProjectUiSettings, ReadingProgress, UiSettings } from '@shared/types';
+import type { InstanceAuthService } from './services/instanceAuth';
+import type { InstanceSummary, ProjectUiSettings, ReadingProgress, UiSettings } from '@shared/types';
 
 export interface IpcDeps {
   core: AppCore;
@@ -26,6 +27,21 @@ export interface IpcDeps {
   showWindow: () => void;
   /** 托盘是否已创建（用于设置页提示） */
   isTrayActive: () => boolean;
+  /** 打开（或聚焦）迷你朗读窗口；已存在时通知它切换章节 */
+  openMiniReader: (projectId?: string, chapterId?: string) => void;
+  /** 关闭迷你朗读窗口 */
+  closeMiniReader: () => void;
+  // ---------- 多实例 ----------
+  /** 当前实例的密码服务（scrypt 加盐哈希，只存本机数据库） */
+  instanceAuth: InstanceAuthService;
+  /** 当前实例 id：主实例为 main，其余为 inst_xxx */
+  currentInstanceId: string;
+  /** 是否主实例（主实例才会写 instances.json 的主记录） */
+  isMainInstance: boolean;
+  /** 读取实例清单（固定读主实例 userData 下的 instances.json） */
+  listInstances: () => InstanceSummary[];
+  /** 新建实例并以独立进程启动（密码校验由 IPC 层负责） */
+  createInstance: (name?: string) => InstanceSummary;
 }
 
 function wrap<R>(fn: (...args: any[]) => R | Promise<R>): (...args: any[]) => Promise<{ ok: true; data: R } | { ok: false; error: ReturnType<typeof errorPayload>['error'] }> {
@@ -114,6 +130,22 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle(
     'app:isDirty',
     wrap(() => ({ dirty: deps.isDirty() })),
+  );
+
+  // ---------- 迷你朗读窗口 ----------
+  ipcMain.handle(
+    'miniReader:open',
+    wrap((_e, payload?: { projectId?: string; chapterId?: string }) => {
+      deps.openMiniReader(payload?.projectId, payload?.chapterId);
+      return { opened: true as const };
+    }),
+  );
+  ipcMain.handle(
+    'miniReader:close',
+    wrap(() => {
+      deps.closeMiniReader();
+      return { closed: true as const };
+    }),
   );
 
   // ---------- 数据存储位置 ----------
@@ -578,6 +610,48 @@ export function registerIpc(deps: IpcDeps): void {
       clipboard.writeText(text);
       return { copied: true, length: text.length };
     }),
+  );
+
+  // ---------- 多实例与密码 ----------
+  // 密码只在本机以 scrypt 加盐哈希保存，任何接口都不返回 salt / hash，也不会出现在日志里。
+  ipcMain.handle(
+    'instance:list',
+    wrap(() => ({
+      instances: deps.listInstances(),
+      currentInstanceId: deps.currentInstanceId,
+    })),
+  );
+  ipcMain.handle(
+    'instance:create',
+    wrap((_e, payload: { password?: unknown; name?: unknown } = {}) => {
+      const password = payload?.password;
+      // 先做入参校验，再做密码校验；错误信息统一为中文，不泄露内部细节
+      if (typeof password !== 'string' || password.length === 0) {
+        throw new NovelError('VALIDATION_ERROR', '请输入密码', 400);
+      }
+      if (!deps.instanceAuth.verify(password)) {
+        throw new NovelError('VALIDATION_ERROR', '密码不正确', 400);
+      }
+      const rawName = typeof payload?.name === 'string' ? payload.name.trim() : '';
+      const name = rawName ? rawName.slice(0, 60) : undefined;
+      return { ok: true as const, instance: deps.createInstance(name) };
+    }),
+  );
+  ipcMain.handle(
+    'instance:verifyPassword',
+    wrap((_e, password: unknown) => ({ ok: deps.instanceAuth.verify(password as string) })),
+  );
+  ipcMain.handle(
+    'instance:setPassword',
+    wrap((_e, payload: { current?: unknown; next?: unknown } = {}) => {
+      const result = deps.instanceAuth.setPassword(payload?.current as string, payload?.next as string);
+      if (!result.ok) throw new NovelError('VALIDATION_ERROR', result.error, 400);
+      return { ok: true as const };
+    }),
+  );
+  ipcMain.handle(
+    'instance:isDefaultPassword',
+    wrap(() => ({ isDefault: deps.instanceAuth.isUsingDefaultPassword() })),
   );
 
   // ---------- 媒体协议辅助 ----------

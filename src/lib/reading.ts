@@ -10,6 +10,8 @@
  * - 拖动进度条 = 找到目标字符所在的短句，从该短句的对应字符重新开读。
  */
 
+import { clampRate } from './readingRate';
+
 export interface ReadingSegment {
   /** 在全文中的起始字符偏移 */
   start: number;
@@ -250,8 +252,9 @@ export class SpeechReader {
     this.restartIfPlaying();
   }
 
+  /** 语速 0.1 ~ 3（保留两位小数），朗读中调用会立即从当前句重新开读。 */
   setRate(rate: number): void {
-    const next = Math.min(2, Math.max(0.5, Number(rate) || 1));
+    const next = clampRate(rate, this.rate);
     if (next === this.rate) return;
     this.rate = next;
     this.restartIfPlaying();

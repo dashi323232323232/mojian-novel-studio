@@ -492,6 +492,14 @@ export interface NovelErrorShape {
   status?: number;
 }
 
+/** 多实例：每个实例拥有独立的 userData、数据库与设置。 */
+export interface InstanceSummary {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastOpenedAt: string | null;
+}
+
 export type ProjectWithStats = Project;
 
 export interface SearchHit {

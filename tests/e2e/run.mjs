@@ -22,6 +22,7 @@ const SUITES = [
   { name: 'tray', file: 'tray.mjs', desc: '系统托盘：关闭收缩/恢复/切换直接退出' },
   { name: 'close-guard-tray', file: 'close-guard-tray.mjs', desc: '关闭保护与托盘组合' },
   { name: 'settings-persist', file: 'settings-persist.mjs', desc: '设置与朗读进度持久化' },
+  { name: 'v15-features', file: 'v15-features.mjs', desc: '多实例/卷册目录/自动排版/迷你朗读弹窗' },
   { name: 'advanced', file: 'advanced.mjs', desc: '进阶：长文本/版本/画布/音频/Agent' },
 ];
 

@@ -16,6 +16,7 @@ import type {
   Foreshadow,
   ForeshadowInput,
   ForeshadowPatch,
+  InstanceSummary,
   NodeChapterLink,
   OutlineEdge,
   OutlineEdgeInput,
@@ -33,6 +34,9 @@ import type {
   UiSettings,
   Voice,
 } from '@shared/types';
+
+/** 多实例：每个实例拥有独立的 userData 与数据库（类型统一由共享层定义，这里只转出）。 */
+export type { InstanceSummary };
 
 export interface ApiError {
   code: string;
@@ -83,6 +87,12 @@ interface RawApi {
     clearReadingProgress(projectId: string, chapterId: string): Promise<Result<{ cleared: boolean }>>;
     hideToTray(): Promise<Result<{ hidden: boolean; trayActive: boolean }>>;
     showWindow(): Promise<Result<{ shown: boolean }>>;
+    // ---------- 多实例 ----------
+    instances(): Promise<Result<{ instances: InstanceSummary[]; currentInstanceId: string }>>;
+    createInstance(payload: { password: string; name?: string }): Promise<Result<{ ok: true; instance: InstanceSummary }>>;
+    verifyInstancePassword(password: string): Promise<Result<{ ok: boolean }>>;
+    setInstancePassword(payload: { current: string; next: string }): Promise<Result<{ ok: true }>>;
+    isDefaultInstancePassword(): Promise<Result<{ isDefault: boolean }>>;
     windowState(): Promise<Result<{ trayActive: boolean; closeAction: 'tray' | 'quit'; visible: boolean }>>;
     onWindowShown(cb: () => void): () => void;
     exportText(options: { defaultName: string; content: string }): Promise<Result<{ canceled: boolean; filePath?: string }>>;
@@ -196,6 +206,10 @@ interface RawApi {
     outlineGuide(): Promise<Result<string>>;
     copyOutlineGuide(): Promise<Result<{ copied: boolean; length: number }>>;
     copyText(text: string): Promise<Result<{ copied: boolean; length: number }>>;
+  };
+  miniReader: {
+    open(payload?: { projectId?: string; chapterId?: string }): Promise<Result<{ opened: boolean }>>;
+    close(): Promise<Result<{ closed: boolean }>>;
   };
   events: {
     onDataChanged(cb: (event: unknown) => void): () => void;

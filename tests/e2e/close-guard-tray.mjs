@@ -195,8 +195,19 @@ async function ensureEditor(handle, projectName, chapterName, text) {
     await win.click('.modal-foot .btn-primary');
     await win.waitForTimeout(900);
   }
+  // 目录默认按「卷 → 每 20 章分组」收缩：先逐层展开，才能点到已有章节
+  for (let i = 0; i < 6 && (await win.locator('.chapter-row').count()) === 0; i += 1) {
+    if ((await win.locator('.ct-group-head[aria-expanded="false"]').count()) > 0) {
+      await win.click('.ct-group-head[aria-expanded="false"] >> nth=0');
+    } else if ((await win.locator('.ct-volume-head[aria-expanded="false"]').count()) > 0) {
+      await win.click('.ct-volume-head[aria-expanded="false"] >> nth=0');
+    } else {
+      break;
+    }
+    await win.waitForTimeout(500);
+  }
   if ((await win.locator('.chapter-row').count()) > 0) {
-    await win.click('.chapter-row');
+    await win.click('.chapter-row >> nth=0');
     await win.waitForTimeout(900);
   } else {
     await win.click('button:has-text("新建章节")');

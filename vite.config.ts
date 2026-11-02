@@ -16,6 +16,14 @@ export default defineConfig({
     outDir: 'dist/renderer',
     emptyOutDir: true,
     chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      input: {
+        // 主窗口
+        main: path.resolve(__dirname, 'index.html'),
+        // 迷你朗读窗口（独立 BrowserWindow 加载）
+        mini: path.resolve(__dirname, 'mini.html'),
+      },
+    },
   },
   server: {
     port: 5199,
