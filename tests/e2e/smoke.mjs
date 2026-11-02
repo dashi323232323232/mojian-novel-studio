@@ -9,6 +9,9 @@ const root = path.resolve(__dirname, '../..');
 
 const DATA_DIR = process.env.DASHI_DATA_DIR || path.join(os.tmpdir(), `dashi-e2e-${Date.now()}`);
 fs.mkdirSync(DATA_DIR, { recursive: true });
+// 独立 userData：避免与其它并行/残留实例抢单实例锁与磁盘缓存目录
+const USER_DATA = path.join(os.tmpdir(), `dashi-e2e-ud-${Date.now()}`);
+fs.mkdirSync(USER_DATA, { recursive: true });
 
 const results = [];
 function record(name, ok, detail = '') {
@@ -20,7 +23,7 @@ async function main() {
   const env = { ...process.env, DASHI_DATA_DIR: DATA_DIR, DASHI_PORTABLE: '0' };
   delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({
-    args: [root],
+    args: [root, `--user-data-dir=${USER_DATA}`],
     env,
     timeout: 60000,
   });

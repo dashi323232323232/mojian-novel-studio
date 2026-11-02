@@ -11,6 +11,7 @@ import { toast } from './lib/toast';
 import { confirmLeave } from './lib/leaveGuard';
 import { Sidebar } from './components/Sidebar';
 import { ToastHost } from './components/ui';
+import { NewInstanceButton } from './components/NewInstanceButton';
 import { WelcomePage } from './pages/WelcomePage';
 import { ContentPage } from './pages/ContentPage';
 import { EditorPage } from './pages/EditorPage';
@@ -195,10 +196,18 @@ export default function App() {
     async (chapterId: string) => {
       const ok = await confirmLeave();
       if (!ok) return;
+      // 记录最近打开的章节：返回目录时据此自动展开它所在的卷与分组
+      try {
+        sessionStorage.setItem('dashi.content.lastChapterId', chapterId);
+      } catch {
+        /* 隐私模式等场景忽略 */
+      }
       navigate({ view: 'editor', chapterId });
     },
     [navigate],
   );
+
+  const titleText = project?.name ? `${project.name} · 大师小说工作台` : '大师小说工作台';
 
   let content: React.ReactNode;
   if (active.view === 'agent') {
@@ -266,6 +275,16 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      {/* 自绘标题栏：系统按钮（最小化/最大化/关闭）仍由 Electron 绘制在右侧，
+          这里只占用标题栏的可拖动区域，并把「新建实例」按钮紧贴在系统按钮左侧。 */}
+      <div className="app-titlebar">
+        <div className="app-titlebar-drag">
+          <span className="app-titlebar-title">{titleText}</span>
+        </div>
+        <div className="app-titlebar-actions">
+          <NewInstanceButton />
+        </div>
+      </div>
       <Sidebar />
       <main className="app-main">{content}</main>
       <ToastHost />

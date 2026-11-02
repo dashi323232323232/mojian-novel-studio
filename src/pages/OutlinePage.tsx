@@ -17,6 +17,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Wand2,
+  LayoutGrid,
+  RotateCcw,
 } from 'lucide-react';
 import type { Foreshadow, NodeType, OutlineSnapshot, ProjectStructure } from '@shared/types';
 import { NODE_TYPE_META, EDGE_RELATION_META } from '@shared/constants';
@@ -24,6 +26,7 @@ import { api } from '../lib/api';
 import { confirmLeave } from '../lib/leaveGuard';
 import { toast } from '../lib/toast';
 import { OutlineCanvas, type OutlineCanvasHandle } from '../components/outline/OutlineCanvas';
+import { LayoutDialog } from '../components/outline/LayoutDialog';
 import { NodeDetails } from '../components/outline/NodeDetails';
 import { ConfirmDialog } from '../components/Modal';
 import { ForeshadowPanel } from '../components/ForeshadowPanel';
@@ -83,6 +86,10 @@ export function OutlinePage({
   const canvasHandle = useRef<OutlineCanvasHandle | null>(null);
   const viewportSaveTimer = useRef<number | null>(null);
   const loadedViewport = useRef(false);
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  /** 应用自动排版之前的节点位置，用于「恢复原来的位置」/「撤销排版」 */
+  const originalPositions = useRef<Record<string, { x: number; y: number }> | null>(null);
+  const [hasLayoutBackup, setHasLayoutBackup] = useState(false);
 
   // 读取项目级视口设置（只加载一次）
   useEffect(() => {
@@ -115,6 +122,46 @@ export function OutlinePage({
 
   const createNode = (type: NodeType) => {
     setPendingCreate({ type, nonce: Date.now() });
+  };
+
+  // 切换项目时清掉旧的排版备份，避免把 A 项目的坐标用到 B 项目
+  useEffect(() => {
+    originalPositions.current = null;
+    setHasLayoutBackup(false);
+    setLayoutOpen(false);
+  }, [projectId]);
+
+  /**
+   * 应用自动排版：只更新已有节点的 x / y。
+   * 首次应用前把当前位置存进 originalPositions；连续排版时保留最早的一份，
+   * 保证「撤销排版」始终回到用户手动摆好的原始位置。
+   */
+  const applyOutlineLayout = (positions: Record<string, { x: number; y: number }>) => {
+    if (!originalPositions.current) {
+      const current = canvasHandle.current?.getNodePositions() ?? {};
+      const backup: Record<string, { x: number; y: number }> = {};
+      for (const node of snapshot.nodes) {
+        const pos = current[node.id] ?? { x: node.x, y: node.y };
+        backup[node.id] = { x: pos.x, y: pos.y };
+      }
+      if (!Object.keys(backup).length) return;
+      originalPositions.current = backup;
+    }
+    setHasLayoutBackup(true);
+    canvasHandle.current?.applyLayout(positions);
+    setLayoutOpen(false);
+    toast.success('已应用自动排版，可用工具栏「撤销排版」还原原来的位置');
+  };
+
+  /** 恢复应用排版之前的节点位置 */
+  const restoreOutlineLayout = () => {
+    const backup = originalPositions.current;
+    if (!backup) return;
+    canvasHandle.current?.applyLayout(backup);
+    originalPositions.current = null;
+    setHasLayoutBackup(false);
+    setLayoutOpen(false);
+    toast.success('已恢复自动排版之前的位置');
   };
 
   /** 按内容页的阶段/章节自动生成画布结构（阶段 → 章节，并连线） */
@@ -213,6 +260,19 @@ export function OutlinePage({
           <button className="btn btn-sm" onClick={() => void generateFromContent()} disabled={generating} title="按内容页的阶段与章节自动生成节点和顺序连线">
             {generating ? <span className="spinner" /> : <Wand2 size={13} />} 从内容生成结构
           </button>
+          <button
+            className="btn btn-sm"
+            onClick={() => setLayoutOpen(true)}
+            disabled={!snapshot.nodes.length}
+            title="一键重排节点，减少连线交叉与重叠（可预览、可撤销）"
+          >
+            <LayoutGrid size={13} /> 自动排版
+          </button>
+          {hasLayoutBackup ? (
+            <button className="btn btn-sm" onClick={restoreOutlineLayout} title="还原到应用自动排版之前的位置">
+              <RotateCcw size={13} /> 撤销排版
+            </button>
+          ) : null}
           <button className="btn btn-sm" onClick={() => canvasHandle.current?.fitView()}>
             <Maximize2 size={13} /> 适应画布
           </button>
@@ -373,6 +433,16 @@ export function OutlinePage({
           />
         </div>
       )}
+
+      <LayoutDialog
+        open={layoutOpen}
+        nodes={snapshot.nodes}
+        edges={snapshot.edges}
+        hasBackup={hasLayoutBackup}
+        onApply={applyOutlineLayout}
+        onRestore={restoreOutlineLayout}
+        onClose={() => setLayoutOpen(false)}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

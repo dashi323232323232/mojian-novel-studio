@@ -30,6 +30,14 @@ const api = {
       ipcRenderer.invoke('app:readingProgress', projectId, progress),
     clearReadingProgress: (projectId: string, chapterId: string) =>
       ipcRenderer.invoke('app:clearReadingProgress', projectId, chapterId),
+    // ---------- 多实例（密码只在本机校验，不上传任何数据） ----------
+    instances: () => ipcRenderer.invoke('instance:list'),
+    createInstance: (payload: { password: string; name?: string }) =>
+      ipcRenderer.invoke('instance:create', payload),
+    verifyInstancePassword: (password: string) => ipcRenderer.invoke('instance:verifyPassword', password),
+    setInstancePassword: (payload: { current: string; next: string }) =>
+      ipcRenderer.invoke('instance:setPassword', payload),
+    isDefaultInstancePassword: () => ipcRenderer.invoke('instance:isDefaultPassword'),
     hideToTray: () => ipcRenderer.invoke('app:hideToTray'),
     showWindow: () => ipcRenderer.invoke('app:showWindow'),
     windowState: () => ipcRenderer.invoke('app:windowState'),
@@ -135,6 +143,11 @@ const api = {
     outlineGuide: () => ipcRenderer.invoke('api:outlineGuide'),
     copyOutlineGuide: () => ipcRenderer.invoke('api:copyOutlineGuide'),
     copyText: (text: string) => ipcRenderer.invoke('api:copyText', text),
+  },
+  miniReader: {
+    open: (payload?: { projectId?: string; chapterId?: string }) =>
+      ipcRenderer.invoke('miniReader:open', payload),
+    close: () => ipcRenderer.invoke('miniReader:close'),
   },
   events: {
     onDataChanged: (cb: (event: unknown) => void) => {

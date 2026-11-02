@@ -42,6 +42,10 @@ export interface OutlineCanvasHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   getViewport: () => { x: number; y: number; zoom: number } | null;
+  /** 应用自动排版结果：更新节点位置并走一次 updatePositions 保存（不新增任何数据字段） */
+  applyLayout: (positions: Record<string, { x: number; y: number }>) => void;
+  /** 读取当前画布上各节点的实时位置（包含尚未保存的拖动） */
+  getNodePositions: () => Record<string, { x: number; y: number }>;
 }
 
 interface Props {
@@ -341,9 +345,39 @@ export function OutlineCanvas({
       zoomIn: () => flowRef.current?.zoomIn({ duration: 150 }),
       zoomOut: () => flowRef.current?.zoomOut({ duration: 150 }),
       getViewport: () => flowRef.current?.getViewport() ?? null,
+      applyLayout: (positions) => {
+        const entries = Object.entries(positions).filter(
+          ([, pos]) => pos && Number.isFinite(pos.x) && Number.isFinite(pos.y),
+        );
+        if (!entries.length) return;
+        const nextById = new Map(entries.map(([id, pos]) => [id, pos]));
+        setNodes((current) =>
+          current.map((n) => {
+            const pos = nextById.get(n.id);
+            return pos ? { ...n, position: { x: Math.round(pos.x), y: Math.round(pos.y) } } : n;
+          }),
+        );
+        // 只更新已有节点的 x / y，不写入任何新字段
+        onSnapshotChange({
+          ...snapshot,
+          nodes: snapshot.nodes.map((n) => {
+            const pos = nextById.get(n.id);
+            return pos ? { ...n, x: Math.round(pos.x), y: Math.round(pos.y) } : n;
+          }),
+        });
+        // 只写回 x / y：节点尺寸与内容完全不动，保证与旧数据兼容
+        persistPositions(
+          entries.map(([id, pos]) => ({ id, x: Math.round(pos.x), y: Math.round(pos.y) })),
+        );
+      },
+      getNodePositions: () => {
+        const map: Record<string, { x: number; y: number }> = {};
+        for (const n of nodes) map[n.id] = { x: n.position.x, y: n.position.y };
+        return map;
+      },
     });
     return () => registerHandle(null);
-  }, [registerHandle, nodes]);
+  }, [registerHandle, nodes, snapshot, onSnapshotChange, persistPositions]);
 
   const onMoveEnd = useCallback(
     (_: unknown, viewport: { x: number; y: number; zoom: number }) => {

@@ -24,6 +24,7 @@ import {
   type ReaderProgress,
   type ReaderVoice,
 } from '../../lib/reading';
+import { buildChapterTree } from '../../lib/chapterTree';
 import { api } from '../../lib/api';
 import { toast } from '../../lib/toast';
 
@@ -134,6 +135,8 @@ export function ReaderView({
     latestRef.current = { chapters, autoNext: settings.autoNext };
   }, [chapters, settings.autoNext]);
 
+  // 卷册分级目录：卷 → 每 20 章一组（与内容页共用同一套切分规则）
+  const chapterTree = useMemo(() => buildChapterTree(structure.stages, chapters), [structure.stages, chapters]);
   const stageName = useMemo(() => {
     if (!chapter?.stageId) return null;
     return structure.stages.find((s) => s.id === chapter.stageId)?.name ?? null;
@@ -543,12 +546,11 @@ export function ReaderView({
                 }}
               >
                 {chapters.length === 0 ? <option value="">暂无章节</option> : null}
-                {structure.stages.map((stage) => {
-                  const list = chapters.filter((c) => c.stageId === stage.id);
-                  if (!list.length) return null;
-                  return (
-                    <optgroup key={stage.id} label={stage.name}>
-                      {list.map((c) => {
+                {/* 卷 → 每 20 章一个分组，与「内容」页目录层级保持一致 */}
+                {chapterTree.map((volume) => (
+                  <optgroup key={volume.id} label={volume.label}>
+                    {volume.groups.map((group) =>
+                      group.chapters.map((c) => {
                         const saved = progressMap[c.id];
                         const pct = saved ? Math.round(saved.percent * 100) : 0;
                         return (
@@ -557,21 +559,10 @@ export function ReaderView({
                             {pct > 0 ? `（已读 ${pct}%）` : ''}
                           </option>
                         );
-                      })}
-                    </optgroup>
-                  );
-                })}
-                {chapters.filter((c) => !c.stageId).length ? (
-                  <optgroup label="未分阶段">
-                    {chapters
-                      .filter((c) => !c.stageId)
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
+                      }),
+                    )}
                   </optgroup>
-                ) : null}
+                ))}
               </select>
             </label>
 

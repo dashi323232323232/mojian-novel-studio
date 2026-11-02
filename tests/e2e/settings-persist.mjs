@@ -218,18 +218,36 @@ async function chapterContent(chapterId) {
 
 // ---------------- UI 操作 ----------------
 
+/**
+ * 目录默认按「卷 → 每 20 章分组」收缩：逐层展开，直到能看到「新建章节」入口。
+ * 新项目会自动创建一个「第一阶段」，因此只需要展开卷即可。
+ */
+async function expandToChapterList() {
+  const win = ctx.win;
+  for (let i = 0; i < 8; i += 1) {
+    if ((await win.locator('.add-chapter-row').count()) > 0) return;
+    if ((await win.locator('.ct-volume-head[aria-expanded="false"]').count()) > 0) {
+      await win.click('.ct-volume-head[aria-expanded="false"] >> nth=0');
+    } else {
+      break;
+    }
+    await win.waitForTimeout(400);
+  }
+}
+
 async function createProject(name) {
   const win = ctx.win;
   await win.click('.sidebar .btn-primary');
   await win.waitForSelector('.modal input.input', { timeout: 8000 });
   await win.fill('.modal input.input', name);
   await win.click('.modal-foot .btn-primary');
-  await win.waitForSelector('.add-chapter-row', { timeout: 20000 });
+  await win.waitForSelector('.ct-volume-head', { timeout: 20000 });
   await win.waitForTimeout(700);
 }
 
 async function createChapterWithText(chapterName, text) {
   const win = ctx.win;
+  await expandToChapterList();
   await win.locator('.add-chapter-row').first().click();
   await win.waitForSelector('.modal input.input', { timeout: 8000 });
   await win.fill('.modal input.input', chapterName);

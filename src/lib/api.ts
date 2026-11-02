@@ -67,6 +67,15 @@ export const api = {
   hideToTray: () => unwrap(getApi().app.hideToTray()),
   showWindow: () => unwrap(getApi().app.showWindow()),
   windowState: () => unwrap(getApi().app.windowState()),
+  // 多实例
+  instances: () => unwrap(getApi().app.instances()),
+  createInstance: (payload: { password: string; name?: string }) => unwrap(getApi().app.createInstance(payload)),
+  verifyInstancePassword: (password: string) => unwrap(getApi().app.verifyInstancePassword(password)),
+  setInstancePassword: (payload: { current: string; next: string }) => unwrap(getApi().app.setInstancePassword(payload)),
+  isDefaultInstancePassword: () => unwrap(getApi().app.isDefaultInstancePassword()),
+  // 迷你朗读窗口
+  openMiniReader: (payload?: { projectId?: string; chapterId?: string }) => unwrap(getApi().miniReader.open(payload)),
+  closeMiniReader: () => unwrap(getApi().miniReader.close()),
   exportText: (defaultName: string, content: string) =>
     unwrap(getApi().app.exportText({ defaultName, content })),
 
