@@ -13,7 +13,7 @@ import { nowIso, parseJson, toJson } from '../util';
  *   方便界面提示「当前仍是默认密码，请尽快修改」。
  */
 
-/** 首次使用时的默认密码（用户明确要求）。修改密码后该值不再生效。 */
+/** 首次使用时的默认密码（用户明确要求，会写进 GitHub 仓库简介）。修改密码后该值不再生效。 */
 export const DEFAULT_INSTANCE_PASSWORD = 'Qy60811';
 
 /** app_settings 中的存储键。 */
