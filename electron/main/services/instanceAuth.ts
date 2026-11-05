@@ -14,7 +14,7 @@ import { nowIso, parseJson, toJson } from '../util';
  */
 
 /** 首次使用时的默认密码（用户明确要求，会写进 GitHub 仓库简介）。修改密码后该值不再生效。 */
-export const DEFAULT_INSTANCE_PASSWORD = 'Qy60811';
+export const DEFAULT_INSTANCE_PASSWORD = 'Qy123456';
 
 /** app_settings 中的存储键。 */
 const AUTH_KEY = 'instance.auth';
@@ -75,12 +75,37 @@ export class InstanceAuthService {
   }
 
   /**
-   * 首次使用时用默认密码初始化。
-   * 重复调用是安全的：已有记录时直接返回。
+   * 首次使用时用默认密码初始化；已有记录时保持不动。
+   * 重复调用是安全的。
    */
   ensureInitialized(): void {
     if (this.readRecord()) return;
     this.writeRecord(this.createRecord(DEFAULT_INSTANCE_PASSWORD, true));
+  }
+
+  /**
+   * 把「仍是默认密码」的旧库迁移到当前默认密码。
+   *
+   * 场景：默认密码常量被改过（例如从 Qy60811 改成 Qy123456），
+   * 但本机数据库里还留着旧默认密码的哈希。此时用户按新密码输入会失败，
+   * 而旧密码又已经对外作废。这里只在「记录标记为 isDefault」且
+   * 「旧默认密码能通过校验」时重写为新默认密码，用户自己改过的密码绝不触碰。
+   *
+   * @param previousDefault 历史默认密码（可传多个，按顺序尝试）
+   * @returns 是否执行了迁移
+   */
+  migrateDefaultPassword(previousDefault: string | string[]): boolean {
+    const record = this.readRecord();
+    if (!record) return false;
+    // 只有仍在使用默认密码的库才迁移，用户改过的密码一律不动
+    if (record.isDefault === false) return false;
+    const candidates = Array.isArray(previousDefault) ? previousDefault : [previousDefault];
+    const matchesOld = candidates.some((pwd) => pwd && pwd !== DEFAULT_INSTANCE_PASSWORD && this.verify(pwd));
+    if (!matchesOld) return false;
+    // 已经就是当前默认密码时不必重写
+    if (this.verify(DEFAULT_INSTANCE_PASSWORD)) return false;
+    this.writeRecord(this.createRecord(DEFAULT_INSTANCE_PASSWORD, true));
+    return true;
   }
 
   /** 校验密码。非法输入（非字符串 / 空串 / 超长）直接返回 false，不做哈希计算。 */

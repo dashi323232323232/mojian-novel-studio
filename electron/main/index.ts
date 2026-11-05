@@ -33,6 +33,12 @@ const isDev = !app.isPackaged && process.env.DASHI_DEV === '1';
  * 渲染层用 --titlebar-height 预留出等高的可拖动区域，并把「新建实例」按钮排在系统按钮左侧。
  */
 const TITLEBAR_HEIGHT = 36;
+
+/**
+ * 历史版本的默认实例密码：升级后若本机库仍是这些默认密码，会自动迁移到当前默认密码。
+ * 用户自己修改过的密码永远不会被覆盖。
+ */
+const LEGACY_DEFAULT_PASSWORDS = ['Qy60811'];
 const DEV_URL = process.env.DASHI_DEV_URL ?? 'http://127.0.0.1:5199';
 
 let mainWindow: BrowserWindow | null = null;
@@ -608,6 +614,14 @@ async function bootstrap(): Promise<void> {
   // 首次启动用默认密码初始化（只存 salt + hash），并把当前实例登记进实例清单
   instanceAuth = new InstanceAuthService(core.db);
   instanceAuth.ensureInitialized();
+  // 默认密码常量变更后，把「仍是默认密码」的旧库迁移到新默认密码，
+  // 避免用户升级后新旧密码都对不上（用户自己改过的密码不会被改动）
+  try {
+    const migrated = instanceAuth.migrateDefaultPassword(LEGACY_DEFAULT_PASSWORDS);
+    if (migrated) console.log('[instance] 已将默认密码迁移到当前版本');
+  } catch (err) {
+    console.error('[instance] 默认密码迁移失败', err);
+  }
   registerCurrentInstance();
   endpoint = new EndpointFileService(dataDir, () => api?.status.port ?? 45871);
   const token = ensureToken(core);

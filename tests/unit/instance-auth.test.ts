@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,7 +21,7 @@ function rawAuthValue(db: Database): string {
 }
 
 describe('实例密码：scrypt 加盐哈希', () => {
-  it('默认密码 Qy60811 可以通过校验', () => {
+  it('默认密码 Qy123456 可以通过校验', () => {
     const { auth, db } = tempAuth();
     try {
       assert.equal(auth.isInitialized(), false);
@@ -36,9 +37,9 @@ describe('实例密码：scrypt 加盐哈希', () => {
   it('错误密码、空串、非字符串、超长密码都不通过', () => {
     const { auth, db } = tempAuth();
     try {
-      assert.equal(auth.verify('Qy60812'), false);
+      assert.equal(auth.verify('Qy123457'), false);
       assert.equal(auth.verify(''), false);
-      assert.equal(auth.verify(' qy60811 '), false);
+      assert.equal(auth.verify(' qy123456 '), false);
       // 非字符串输入直接拒绝，不能抛异常
       assert.equal(auth.verify(undefined as never), false);
       assert.equal(auth.verify(12345678 as never), false);
@@ -163,5 +164,93 @@ describe('实例密码：scrypt 加盐哈希', () => {
     } finally {
       second.close();
     }
+  });
+
+  describe('默认密码变更后的迁移', () => {
+    /**
+     * 模拟「旧版本留下的默认密码」：直接往 app_settings 写一条 isDefault=true 的记录。
+     * 不能用 setPassword，因为它会把 isDefault 置为 false（那代表用户主动改过密码）。
+     */
+    function authWithDefault(initial: string) {
+      const dir = path.join(os.tmpdir(), `dashi-auth-mig-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      fs.mkdirSync(dir, { recursive: true });
+      const db = new Database(path.join(dir, 'dashi.db'));
+      const auth = new InstanceAuthService(db);
+      // 先让服务用当前默认密码初始化，拿到 createRecord 的格式
+      auth.ensureInitialized();
+      // 再手工把记录改成旧密码 + isDefault=true，等价于旧版本写下的数据
+      const parsed = JSON.parse(rawAuthValue(db)) as Record<string, unknown>;
+      const salt = crypto.randomBytes(16);
+      const hash = crypto.scryptSync(initial, salt, 32, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+      db.run(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        'instance.auth',
+        JSON.stringify({ ...parsed, salt: salt.toString('hex'), hash: hash.toString('hex'), isDefault: true }),
+      );
+      return { auth, db };
+    }
+
+    it('旧默认密码会被迁移到当前默认密码', () => {
+      const { auth, db } = authWithDefault('OldDefault2020');
+      try {
+        // 迁移前：旧密码有效、新默认密码无效
+        assert.equal(auth.verify('OldDefault2020'), true);
+        assert.equal(auth.verify(DEFAULT_INSTANCE_PASSWORD), false);
+        assert.equal(auth.migrateDefaultPassword('OldDefault2020'), true);
+        assert.equal(auth.verify('OldDefault2020'), false);
+        assert.equal(auth.verify(DEFAULT_INSTANCE_PASSWORD), true);
+        assert.equal(auth.isUsingDefaultPassword(), true);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('用户自己改过的密码绝不会被迁移覆盖', () => {
+      const { auth, db } = tempAuth();
+      try {
+        auth.ensureInitialized();
+        assert.deepEqual(auth.setPassword(DEFAULT_INSTANCE_PASSWORD, 'MyOwnPass2024'), { ok: true });
+        // isDefault 已变成 false，即使传入「旧默认密码」也不应迁移
+        assert.equal(auth.migrateDefaultPassword('MyOwnPass2024'), false);
+        assert.equal(auth.verify('MyOwnPass2024'), true);
+        assert.equal(auth.verify(DEFAULT_INSTANCE_PASSWORD), false);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('传入不匹配的旧密码时不迁移', () => {
+      const { auth, db } = authWithDefault('OldDefault2020');
+      try {
+        assert.equal(auth.migrateDefaultPassword('NotTheOldOne'), false);
+        assert.equal(auth.verify('OldDefault2020'), true);
+        assert.equal(auth.verify(DEFAULT_INSTANCE_PASSWORD), false);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('支持一次传入多个历史默认密码', () => {
+      const { auth, db } = authWithDefault('VeryOldDefault');
+      try {
+        assert.equal(auth.migrateDefaultPassword(['Qy60811', 'VeryOldDefault']), true);
+        assert.equal(auth.verify(DEFAULT_INSTANCE_PASSWORD), true);
+      } finally {
+        db.close();
+      }
+    });
+
+    it('已经是当前默认密码时不做无意义重写', () => {
+      const { auth, db } = tempAuth();
+      try {
+        auth.ensureInitialized();
+        const before = rawAuthValue(db);
+        assert.equal(auth.migrateDefaultPassword('Qy60811'), false);
+        assert.equal(rawAuthValue(db), before, '不应重写哈希');
+      } finally {
+        db.close();
+      }
+    });
   });
 });

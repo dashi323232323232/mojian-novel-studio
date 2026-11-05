@@ -13,7 +13,7 @@ interface InstanceInfo {
 
 /**
  * 「新建实例」按钮：位于右上角窗口控制按钮的左侧。
- * 首次点击会要求输入密码（默认 Qy60811，可在弹窗内修改），
+ * 首次点击会要求输入密码（默认 Qy123456，可在弹窗内修改），
  * 校验通过后以独立 userData 启动一个新的应用实例。
  */
 export function NewInstanceButton() {
