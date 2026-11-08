@@ -24,6 +24,8 @@ const SUITES = [
   { name: 'settings-persist', file: 'settings-persist.mjs', desc: '设置与朗读进度持久化' },
   { name: 'v15-features', file: 'v15-features.mjs', desc: '多实例/卷册目录/自动排版/迷你朗读弹窗' },
   { name: 'project-transfer', file: 'project-transfer.mjs', desc: '项目导出为 zip / 导入 / 默认导出文件夹' },
+  { name: 'summary-sync', file: 'summary-sync.mjs', desc: '大纲↔内容 名称/简介双向同步、卷改名入口' },
+  { name: 'chapter-tooltip', file: 'chapter-tooltip.mjs', desc: '章节简介悬浮窗、大纲缩放范围 2%~800%' },
   { name: 'auto-next', file: 'auto-next.mjs', desc: '读完一章自动续读下一章' },
   { name: 'advanced', file: 'advanced.mjs', desc: '进阶：长文本/版本/画布/音频/Agent' },
 ];

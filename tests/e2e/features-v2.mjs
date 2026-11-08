@@ -14,7 +14,10 @@ const record = (name, ok, detail = '') => {
 async function launch() {
   const env = { ...process.env, DASHI_DATA_DIR: DATA_DIR };
   delete env.ELECTRON_RUN_AS_NODE;
-  const app = await electron.launch({ args: [path.resolve('.')], env, timeout: 60000 });
+  // 独立 userData：避免与并行/残留实例抢单实例锁与磁盘缓存目录
+  const userData = path.join(os.tmpdir(), `dashi-v2-ud-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  fs.mkdirSync(userData, { recursive: true });
+  const app = await electron.launch({ args: [path.resolve('.'), `--user-data-dir=${userData}`], env, timeout: 60000 });
   const win = await app.firstWindow();
   await win.waitForSelector('.sidebar', { timeout: 20000 });
   await win.waitForTimeout(800);

@@ -75,6 +75,7 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
   >([]);
   const [searching, setSearching] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showVolumeTip, setShowVolumeTip] = useState(true);
 
   // 勾选导出
   const [selectMode, setSelectMode] = useState(false);
@@ -514,6 +515,17 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
           />
         ) : (
           <>
+          {!selectMode && showVolumeTip ? (
+            <div className="info-note" style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <span style={{ flex: 1 }}>
+                每一卷标题右侧都有操作按钮：<b>铅笔</b> 可给卷改名 / 改简介（卷标题上也会显示「点此编辑」），
+                <b>加号</b> 在此卷新建章节，<b>垃圾桶</b> 删除此卷；鼠标停在章节上约半秒即可看到完整的章节简介。
+              </span>
+              <button className="btn btn-sm btn-ghost" onClick={() => setShowVolumeTip(false)} title="不再显示此提示">
+                <X size={13} /> 知道了
+              </button>
+            </div>
+          ) : null}
           <ChapterTree
             structure={structure}
             selectedChapterId={selectMode ? null : undefined}
@@ -571,6 +583,23 @@ export function ContentPage({ project, structure, reload, onOpenChapter }: Props
                 </DropdownMenu>
               )
             }
+            disableTooltip={selectMode}
+            {...(selectMode
+              ? {}
+              : {
+                  onEditVolume: (id: string) => {
+                    const st = structure.stages.find((s) => s.id === id);
+                    if (st) setStageModal({ mode: 'rename', stage: st });
+                  },
+                  onAddChapterToVolume: (id: string) => openAddMenu(id === '__unassigned__' ? null : id),
+                  onDeleteVolume: (id: string) => {
+                    const st = structure.stages.find((s) => s.id === id);
+                    if (!st) return;
+                    setDeleteStage(st);
+                    setDeleteStageAction('move');
+                    setDeleteStageTarget(stageOptions[0]?.id ?? '');
+                  },
+                })}
           />
 
           {!selectMode ? (

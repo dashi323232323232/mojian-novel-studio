@@ -25,11 +25,32 @@
   min-width: 0;
 }
 
+/*
+ * 卷标题行：内层 .ct-volume-head 才是展开/收缩按钮，外层只做布局容器。
+ * 保留 stage-head 类名兼容旧选择器；这里覆写 global.css 里旧版 .stage-head
+ * 的背景 / 内边距 / 下边框，避免把分层目录画成旧版卡片。
+ */
+.ct-volume-head-row.stage-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.ct-volume-head-row.stage-head:hover {
+  background: transparent;
+}
+
 .ct-volume-head {
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
   min-width: 0;
   margin: 0;
   padding: 7px 8px;
@@ -63,6 +84,15 @@
   text-overflow: ellipsis;
 }
 
+/* 兼容旧版 global.css 的 .stage-name：它会把标题变成 flex，这里恢复成省略号文本。 */
+.ct-volume-title.stage-name {
+  display: block;
+  gap: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  align-items: normal;
+}
+
 .ct-volume-count,
 .ct-volume-words {
   flex: 0 0 auto;
@@ -71,6 +101,70 @@
   font-size: 11px;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
+}
+
+/* 卷标题行右侧：悬停出现的文字入口，点一下直接编辑此卷 */
+.ct-volume-edit-hint {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--accent-border, var(--accent));
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  -webkit-app-region: no-drag;
+  transition: opacity 0.12s ease;
+}
+
+.ct-volume-head-row:hover .ct-volume-edit-hint,
+.ct-volume-head-row:focus-within .ct-volume-edit-hint {
+  opacity: 1;
+}
+
+.ct-volume-edit-hint:hover {
+  color: var(--accent);
+  filter: brightness(0.97);
+}
+
+.ct-volume-edit-hint:focus-visible {
+  outline: 2px solid var(--accent-border, var(--accent));
+  outline-offset: 1px;
+}
+
+/* 卷标题行右侧的三个图标按钮（编辑 / 新建章节 / 删除） */
+.ct-volume-actions.stage-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  margin-left: 0;
+  padding-right: 4px;
+  opacity: 1;
+}
+
+.ct-volume-action {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  -webkit-app-region: no-drag;
+}
+
+.ct-volume-action:focus-visible {
+  outline: 2px solid var(--accent-border, var(--accent));
+  outline-offset: -2px;
+}
+
+.ct-volume-action-danger:hover {
+  color: var(--danger);
+  background: var(--danger-soft, var(--bg-hover));
 }
 
 .ct-volume-body {
@@ -298,4 +392,77 @@
 
 .ct-volume-footer {
   padding: 4px 12px 8px 28px;
+}
+
+/* ---------- 章节简介悬浮窗（整棵树只渲染一个） ---------- */
+.ct-tooltip {
+  position: fixed;
+  z-index: 300;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  padding: 10px 12px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  background: var(--bg-elevated, #fff);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.6;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+
+.ct-tooltip-title {
+  margin-bottom: 5px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.ct-tooltip-summary {
+  max-height: 200px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ct-tooltip-summary .ct-mark {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ct-tooltip-summary.ct-tooltip-empty {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.ct-tooltip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-tooltip .ct-mark {
+  background: #fff1a8;
+}
+
+/* 浮层内出现滚动条时更收敛一些，避免遮挡简介文字 */
+.ct-tooltip-summary::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ct-tooltip-summary::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--border);
 }

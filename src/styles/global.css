@@ -2908,3 +2908,19 @@ textarea {
 .mr-root {
   padding-top: 0;
 }
+
+/* 缩放倍率显示：让用户知道当前还能缩多少 / 放大多少 */
+.outline-zoom-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  user-select: none;
+}

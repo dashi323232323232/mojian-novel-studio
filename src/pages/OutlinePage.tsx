@@ -83,6 +83,17 @@ export function OutlinePage({
   const [paletteOpen, setPaletteOpen] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [viewport, setViewport] = useState<{ x: number; y: number; zoom: number } | null>(null);
+  /** 工具栏显示的缩放倍率：与 viewport 分开，未交互时也能显示画布真实倍率 */
+  const [zoomLabel, setZoomLabel] = useState(1);
+  // 画布的缩放会通过 fitView / 自动排版 / 缩放按钮等路径改变，
+  // 不一定都触发 onViewportChange，这里定时同步一次显示值。
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const vp = canvasHandle.current?.getViewport();
+      if (vp && Number.isFinite(vp.zoom)) setZoomLabel(vp.zoom);
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, []);
   const canvasHandle = useRef<OutlineCanvasHandle | null>(null);
   const viewportSaveTimer = useRef<number | null>(null);
   const loadedViewport = useRef(false);
@@ -276,6 +287,12 @@ export function OutlinePage({
           <button className="btn btn-sm" onClick={() => canvasHandle.current?.fitView()}>
             <Maximize2 size={13} /> 适应画布
           </button>
+          <span
+            className="outline-zoom-badge"
+            title="当前缩放倍率（可在 2% ~ 800% 之间自由缩放）"
+          >
+            {Math.round(zoomLabel * 100)}%
+          </span>
         </div>
       </div>
 
@@ -395,6 +412,7 @@ export function OutlinePage({
             initialViewport={viewport}
             onViewportChange={(next) => {
               setViewport(next);
+              setZoomLabel(next.zoom);
               saveViewport(next);
             }}
             registerHandle={(handle) => {

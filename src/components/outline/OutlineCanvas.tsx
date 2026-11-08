@@ -341,9 +341,22 @@ export function OutlineCanvas({
         if (!node || !flowRef.current) return;
         flowRef.current.setCenter(node.position.x + 110, node.position.y + 60, { zoom: 1.1, duration: 300 });
       },
-      fitView: () => flowRef.current?.fitView({ duration: 300, padding: 0.2, maxZoom: 1.15 }),
-      zoomIn: () => flowRef.current?.zoomIn({ duration: 150 }),
-      zoomOut: () => flowRef.current?.zoomOut({ duration: 150 }),
+      fitView: () => flowRef.current?.fitView({ duration: 300, padding: 0.2, minZoom: 0.02, maxZoom: 4 }),
+      // 缩放范围放宽到 0.02~8 后，默认步长（约 1.2 倍）需要点很多次才能到两端，
+      // 这里用 1.35 倍手动步进，兼顾「点几下就能缩到全貌」与精细调整。
+      // 不做动画：连续点击时动画会互相打断，导致实际倍率跟不上点击次数
+      zoomIn: () => {
+        const flow = flowRef.current;
+        if (!flow) return;
+        const vp = flow.getViewport();
+        flow.zoomTo(Math.min(8, vp.zoom * 1.35), { duration: 0 });
+      },
+      zoomOut: () => {
+        const flow = flowRef.current;
+        if (!flow) return;
+        const vp = flow.getViewport();
+        flow.zoomTo(Math.max(0.02, vp.zoom / 1.35), { duration: 0 });
+      },
       getViewport: () => flowRef.current?.getViewport() ?? null,
       applyLayout: (positions) => {
         const entries = Object.entries(positions).filter(
@@ -471,7 +484,7 @@ export function OutlineCanvas({
           if (initialViewport) {
             instance.setViewport(initialViewport);
           } else if (snapshot.nodes.length) {
-            window.setTimeout(() => instance.fitView({ padding: 0.25, duration: 0, maxZoom: 1.15 }), 80);
+            window.setTimeout(() => instance.fitView({ padding: 0.25, duration: 0, minZoom: 0.02, maxZoom: 4 }), 80);
           }
         }}
         onNodeClick={(_, node) => onSelectNode(node.id)}
@@ -486,8 +499,10 @@ export function OutlineCanvas({
         }}
         onMoveEnd={onMoveEnd}
         defaultViewport={initialViewport ?? { x: 0, y: 0, zoom: 1 }}
-        minZoom={0.15}
-        maxZoom={2.5}
+        // 缩放范围放宽：大画布（上百节点）也要能缩到看清全貌，
+        // 放大也要能看清单个节点的详情。两端都留出足够余量。
+        minZoom={0.02}
+        maxZoom={8}
         nodesDraggable
         nodesConnectable
         elementsSelectable
