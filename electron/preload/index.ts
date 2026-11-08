@@ -149,6 +149,14 @@ const api = {
       ipcRenderer.invoke('miniReader:open', payload),
     close: () => ipcRenderer.invoke('miniReader:close'),
   },
+  projectTransfer: {
+    exportProject: (payload: { projectId: string; targetPath?: string }) =>
+      ipcRenderer.invoke('projectTransfer:export', payload),
+    inspect: (zipPath: string) => ipcRenderer.invoke('projectTransfer:inspect', zipPath),
+    importProject: (zipPath: string) => ipcRenderer.invoke('projectTransfer:import', zipPath),
+    chooseZip: () => ipcRenderer.invoke('projectTransfer:chooseZip'),
+    chooseExportFolder: () => ipcRenderer.invoke('projectTransfer:chooseExportFolder'),
+  },
   events: {
     onDataChanged: (cb: (event: unknown) => void) => {
       const listener = (_: unknown, event: unknown) => cb(event);

@@ -229,7 +229,7 @@ export function ChapterTree({
                                     {renderMeta ? <span className="ct-meta">{renderMeta(chapter)}</span> : null}
                                   </button>
                                   {renderActions ? (
-                                    <div className="ct-chapter-actions">{renderActions(chapter)}</div>
+                                    <div className="ct-chapter-actions chapter-actions">{renderActions(chapter)}</div>
                                   ) : null}
                                 </div>
                               );

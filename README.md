@@ -3,7 +3,7 @@
 > 简洁、现代、本地优先的 Windows 长篇小说创作工作台。
 > 项目管理 · 阶段章节 · 图形化大纲 · 大纲正文联动 · 伏笔追踪 · 有声小说 · 本地 Agent API · 多实例（默认密码 Qy123456）
 
-**软件版本**：1.5.0 ｜ **API 版本**：v1 ｜ **平台**：Windows 10/11 x64
+**软件版本**：1.6.0 ｜ **API 版本**：v1 ｜ **平台**：Windows 10/11 x64
 
 ---
 
@@ -556,3 +556,37 @@ GitHub 私有仓库：<https://github.com/ubyubn/mojian-novel-studio>
 | 语音 | 实时朗读：渲染进程 Web Speech（`speechSynthesis`）｜离线音频：Windows SAPI（PowerShell）/ OpenAI 兼容 HTTP |
 | 测试 | node:test + tsx、Playwright（Electron） |
 | 打包 | @electron/packager + asar |
+
+---
+
+## 十二、安装包与分发
+
+在所有功能开发、测试完成并成功执行 `npm run package`（生成 `dist-packaged/DashiNovelStudio-win32-x64/大师小说工作台.exe`）之后，用一条命令制作并分发安装包：
+
+```bash
+npm run make-installer
+```
+
+### 产物是「单个文件」
+
+- 脚本先在临时目录（`os.tmpdir()`）生成**一个**安装包文件，再复制到本地分发目录 `H:\软件安装包`。
+- 优先尝试用 Windows 自带的 `iexpress.exe` 生成自解压 exe；由于该工具对 238MB 大目录及中文长文件名容易失败，脚本会捕获失败并**自动回退**为用 Node 内置 `zlib` 手写 zip 容器，把整个程序目录打成**单个 zip**：
+  `大师小说工作台-<版本号>-win64-便携版.zip`（例如 `大师小说工作台-1.6.0-win64-便携版.zip`）。
+- 因此实际分发的通常就是这份**便携版 zip**：它保留 `DashiNovelStudio-win32-x64/` 目录结构，解压后直接运行里面的 `大师小说工作台.exe` 即可，无需安装、无需额外运行时。
+
+### 自动完成的两件事
+
+| 目标 | 行为 |
+| --- | --- |
+| `H:\软件安装包` | 复制一份安装包过去（目录不存在会自动创建）；随后扫描该目录，把**其它**明显属于本软件的历史安装包（文件名匹配 `大师小说工作台` / `dashi` / `novel` 且扩展名为 `.exe/.zip/.7z/.msi`）全部删除，只保留刚写入的最新一份。删除前会打印待删清单；别人的安装包（123pan、Chrome、Steam、TABLE 游戏厅等）一律不匹配、绝不误删。 |
+| GitHub Release | 用 `git credential fill` 读取本机 token（不打印、不写文件）调用 GitHub API：按 `package.json` 的 `version` 取标签 `v<版本号>`，已存在则复用并先删同名旧 asset，再用 `uploads.github.com` 上传该安装包作为 asset。所有 API 调用都处理错误并打印中文提示；网络不通时支持 `HTTPS_PROXY` / `HTTP_PROXY`（默认也会尝试 `127.0.0.1:7897`），若网络仍不通则**打印警告并跳过上传，不视为失败**。 |
+
+脚本全程打印中文进度，最后打印本地路径与 GitHub Release URL；出错时会明确区分「打包失败」与「上传失败」，并保证 `H:\软件安装包` 那一份仍然可用。
+
+### 便携版 zip 的使用方法
+
+1. 把 `大师小说工作台-<版本号>-win64-便携版.zip` 解压到任意目录（如 `D:\大师小说工作台\`）；
+2. 进入解压出的 `DashiNovelStudio-win32-x64` 目录；
+3. 双击 `大师小说工作台.exe` 启动，首次运行会自动创建本地数据库。
+
+> 注意：`npm run make-installer` 会真实删除 H 盘旧安装包并访问 GitHub，请在所有功能完成后、由主代理统一执行；也可通过环境变量 `HTTPS_PROXY` / `HTTP_PROXY` 指定代理地址。

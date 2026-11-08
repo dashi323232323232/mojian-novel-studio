@@ -47,7 +47,7 @@ const CLAUSE_END = /[，,、：:]/;
 const MAX_SEGMENT_CHARS = 90;
 
 /** cancel() 之后到再次 speak() 的间隔：太短会被引擎静默丢弃，太长会听出停顿。 */
-const SPEAK_RESTART_DELAY_MS = 140;
+export const SPEAK_RESTART_DELAY_MS = 140;
 
 /**
  * 把正文切成适合朗读的短句。

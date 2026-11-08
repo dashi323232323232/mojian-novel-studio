@@ -53,6 +53,17 @@ async function main() {
     await win.waitForTimeout(500);
   }
 
+  // 目录默认按「卷 → 每 20 章分组」收缩：逐层展开后才能点到章节行
+  for (let i = 0; i < 8 && (await win.locator('.chapter-row').count()) === 0; i += 1) {
+    if ((await win.locator('.ct-group-head[aria-expanded="false"]').count()) > 0) {
+      await win.click('.ct-group-head[aria-expanded="false"] >> nth=0');
+    } else if ((await win.locator('.ct-volume-head[aria-expanded="false"]').count()) > 0) {
+      await win.click('.ct-volume-head[aria-expanded="false"] >> nth=0');
+    } else {
+      break;
+    }
+    await win.waitForTimeout(400);
+  }
   await win.click('.chapter-row');
   await win.waitForTimeout(700);
   const longText = '夜色如墨，城市的灯火在雨中晕开。'.repeat(700).slice(0, 12000);
@@ -114,6 +125,17 @@ async function main() {
   record('重启后项目仍存在', projectVisible > 0);
   await win.click('.project-row');
   await win.waitForTimeout(900);
+  // 目录默认按「卷 → 每 20 章分组」收缩：逐层展开后才能点到章节行
+  for (let i = 0; i < 8 && (await win.locator('.chapter-row').count()) === 0; i += 1) {
+    if ((await win.locator('.ct-group-head[aria-expanded="false"]').count()) > 0) {
+      await win.click('.ct-group-head[aria-expanded="false"] >> nth=0');
+    } else if ((await win.locator('.ct-volume-head[aria-expanded="false"]').count()) > 0) {
+      await win.click('.ct-volume-head[aria-expanded="false"] >> nth=0');
+    } else {
+      break;
+    }
+    await win.waitForTimeout(400);
+  }
   await win.click('.chapter-row');
   await win.waitForTimeout(900);
   const content = await win.locator('.cm-content').innerText();

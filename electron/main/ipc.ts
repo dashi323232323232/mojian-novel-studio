@@ -663,6 +663,79 @@ export function registerIpc(deps: IpcDeps): void {
       return { mime: parsed.mime, size: parsed.buffer.length };
     }),
   );
+
+  // ---------- 项目导入 / 导出 ----------
+  // 服务类由 projectTransfer.ts 提供；这里通过 core.transfer 注入，避免 ipc 层直接依赖数据库细节。
+  ipcMain.handle(
+    'projectTransfer:export',
+    wrap(async (_e, payload: { projectId?: string; targetPath?: string } = {}) => {
+      if (!payload?.projectId) throw new NovelError('VALIDATION_ERROR', '缺少项目 ID', 400);
+      const project = core.projects.get(payload.projectId);
+      let target = payload.targetPath;
+      if (!target) {
+        const win = deps.getWindow();
+        const result = await dialog.showSaveDialog(win ?? undefined!, {
+          title: '导出项目',
+          defaultPath: path.join(app.getPath('documents'), `${project.name}.zip`),
+          filters: [{ name: '项目压缩包', extensions: ['zip'] }],
+        });
+        if (result.canceled || !result.filePath) return { canceled: true as const, projectName: project.name, size: 0 };
+        target = result.filePath;
+      }
+      if (typeof target !== 'string' || !target.trim()) {
+        throw new NovelError('VALIDATION_ERROR', '导出路径无效', 400);
+      }
+      const result = await core.transfer.exportProject(payload.projectId, path.resolve(target));
+      return { canceled: false as const, ...result };
+    }),
+  );
+  ipcMain.handle(
+    'projectTransfer:inspect',
+    wrap((_e, zipPath: string) => {
+      if (typeof zipPath !== 'string' || !zipPath) {
+        throw new NovelError('VALIDATION_ERROR', '请选择 .zip 压缩包', 400);
+      }
+      return core.transfer.inspect(zipPath);
+    }),
+  );
+  ipcMain.handle(
+    'projectTransfer:import',
+    wrap(async (_e, zipPath: string) => {
+      if (typeof zipPath !== 'string' || !zipPath) {
+        throw new NovelError('VALIDATION_ERROR', '请选择 .zip 压缩包', 400);
+      }
+      const result = await core.transfer.importProject(zipPath);
+      // 通知渲染层刷新项目列表
+      core.changes.emitChange({ scope: 'projects', projectId: result.projectId, action: 'project.import' });
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    'projectTransfer:chooseZip',
+    wrap(async () => {
+      const win = deps.getWindow();
+      const result = await dialog.showOpenDialog(win ?? undefined!, {
+        title: '选择项目压缩包',
+        properties: ['openFile'],
+        filters: [{ name: '项目压缩包', extensions: ['zip'] }],
+      });
+      if (result.canceled || !result.filePaths[0]) return { canceled: true as const };
+      return { canceled: false as const, filePath: result.filePaths[0] };
+    }),
+  );
+  ipcMain.handle(
+    'projectTransfer:chooseExportFolder',
+    wrap(async () => {
+      const win = deps.getWindow();
+      const result = await dialog.showOpenDialog(win ?? undefined!, {
+        title: '选择默认导出文件夹',
+        properties: ['openDirectory', 'createDirectory'],
+        buttonLabel: '选择此文件夹',
+      });
+      if (result.canceled || !result.filePaths[0]) return { canceled: true as const };
+      return { canceled: false as const, dir: result.filePaths[0] };
+    }),
+  );
 }
 
 export function buildMenu(

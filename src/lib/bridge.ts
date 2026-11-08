@@ -207,6 +207,16 @@ interface RawApi {
     copyOutlineGuide(): Promise<Result<{ copied: boolean; length: number }>>;
     copyText(text: string): Promise<Result<{ copied: boolean; length: number }>>;
   };
+  projectTransfer: {
+    exportProject(payload: {
+      projectId: string;
+      targetPath?: string;
+    }): Promise<Result<{ canceled?: boolean; filePath?: string; projectName: string; size: number }>>;
+    inspect(zipPath: string): Promise<Result<{ projectName: string; chapters: number; exportedAt: string; version: number }>>;
+    importProject(zipPath: string): Promise<Result<{ projectId: string; projectName: string; chapters: number; stages: number }>>;
+    chooseZip(): Promise<Result<{ canceled: boolean; filePath?: string }>>;
+    chooseDefaultFolder(): Promise<Result<{ canceled: boolean; dir?: string }>>;
+  };
   miniReader: {
     open(payload?: { projectId?: string; chapterId?: string }): Promise<Result<{ opened: boolean }>>;
     close(): Promise<Result<{ closed: boolean }>>;

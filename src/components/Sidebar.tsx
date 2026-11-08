@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, LayoutList, PenLine, AudioLines, Pencil, Trash2, Bot, Settings, BookOpen, Sparkles } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, LayoutList, PenLine, AudioLines, Pencil, Trash2, Bot, Settings, BookOpen, Sparkles, Download, Upload, FileArchive } from 'lucide-react';
 import { useAppStore } from '../store/app';
 import { api } from '../lib/api';
 import { toast } from '../lib/toast';
+import { errorMessage } from '../lib/bridge';
+import { formatDateTime } from '@shared/text';
 import { Modal, ConfirmDialog } from './Modal';
 import { confirmLeave } from '../lib/leaveGuard';
 import { DropdownMenu } from './ui';
+import '../styles/project-transfer.css';
 
 const COLOR_CHOICES = ['#5b6cff', '#0f8a6a', '#b25e09', '#a33b6b', '#2563eb', '#6d5bd0', '#c2410c', '#0e7490'];
 
@@ -22,6 +25,8 @@ export function Sidebar() {
   const [createOpen, setCreateOpen] = useState(false);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState<{ id: string; name: string; chapters: number; words: number } | null>(null);
+  const [exporting, setExporting] = useState<{ id: string; name: string } | null>(null);
+  const [exportBusy, setExportBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<{ version: string } | null>(null);
 
@@ -80,6 +85,40 @@ export function Sidebar() {
       toast.error(err instanceof Error ? err.message : '删除项目失败');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const finishImport = async (zipPath: string) => {
+    const result = await api.importProjectZip(zipPath);
+    await loadProjects();
+    useAppStore.getState().setExpanded(result.projectId, true);
+    navigate({ view: 'content', projectId: result.projectId, chapterId: null, nodeId: null });
+    toast.success(`项目「${result.projectName}」已导入，共 ${result.chapters} 章`);
+  };
+
+  const doExport = async () => {
+    if (!exporting || exportBusy) return;
+    setExportBusy(true);
+    try {
+      const settings = await api.settings();
+      const folder = settings.exportFolder;
+      const safeName = exporting.name.replace(/[\\/:*?"<>|]/g, '_').trim() || '项目';
+      // 主进程用 path.resolve 归一化，这里统一用 / 拼接即可（Windows 也接受）
+      const targetPath = folder ? `${folder.replace(/[\\/]+$/, '')}/${safeName}.zip` : undefined;
+      const result = targetPath
+        ? await api.exportProject({ projectId: exporting.id, targetPath })
+        : await api.exportProject({ projectId: exporting.id });
+      if (result.canceled) {
+        toast.info('已取消导出');
+        return;
+      }
+      if (result.filePath) toast.success(`已导出到 ${result.filePath}`);
+      else toast.success(`项目「${result.projectName}」已导出`);
+      setExporting(null);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setExportBusy(false);
     }
   };
 
@@ -173,6 +212,12 @@ export function Sidebar() {
                           icon: <AudioLines size={14} />,
                           onClick: () => void openProject(project.id, 'audio'),
                         },
+                        {
+                          key: 'export',
+                          label: '导出项目',
+                          icon: <Download size={14} />,
+                          onClick: () => setExporting({ id: project.id, name: project.name }),
+                        },
                         'sep',
                         {
                           key: 'delete',
@@ -258,7 +303,51 @@ export function Sidebar() {
         busy={busy}
         onClose={() => setCreateOpen(false)}
         onSubmit={createProject}
+        onImport={finishImport}
       />
+
+      <Modal
+        open={Boolean(exporting)}
+        title="导出项目"
+        subtitle="把整个项目打包成一个 ZIP 文件，方便备份或迁移到其他设备。"
+        onClose={exportBusy ? () => undefined : () => setExporting(null)}
+        footer={
+          <>
+            <button className="btn" onClick={() => setExporting(null)} disabled={exportBusy}>
+              取消
+            </button>
+            <button className="btn btn-primary" onClick={() => void doExport()} disabled={exportBusy}>
+              {exportBusy ? <span className="spinner" /> : <Download size={15} />}
+              导出为 ZIP
+            </button>
+          </>
+        }
+      >
+        <div className="pt-export">
+          <div className="pt-export-project">
+            <FileArchive size={18} style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
+            <div>
+              <div className="pt-export-name">{exporting?.name}</div>
+              <div className="pt-export-hint">将导出为「{exporting?.name}.zip」</div>
+            </div>
+          </div>
+          <div className="pt-export-label">包含内容</div>
+          <div className="pt-export-items">
+            <span className="pt-export-tag">章节</span>
+            <span className="pt-export-tag">大纲</span>
+            <span className="pt-export-tag">伏笔</span>
+            <span className="pt-export-tag">正文</span>
+          </div>
+          <div className="pt-export-note">
+            若已在「设置」中指定默认导出文件夹，将直接保存到该文件夹；否则会弹出系统保存对话框让你选择位置。
+          </div>
+          {exportBusy ? (
+            <div className="pt-export-status">
+              <span className="spinner" /> 正在打包并导出，请稍候…
+            </div>
+          ) : null}
+        </div>
+      </Modal>
 
       <Modal
         open={Boolean(renaming)}
@@ -317,17 +406,23 @@ function CreateProjectModal({
   busy,
   onClose,
   onSubmit,
+  onImport,
 }: {
   open: boolean;
   busy: boolean;
   onClose: () => void;
   onSubmit: (name: string, description: string, genre: string) => void;
+  onImport: (zipPath: string) => Promise<void>;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [genre, setGenre] = useState('');
   const [color, setColor] = useState(COLOR_CHOICES[0]);
   const [error, setError] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [preview, setPreview] = useState<{ projectName: string; chapters: number; exportedAt: string; version: number } | null>(null);
+  const [importError, setImportError] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -336,6 +431,10 @@ function CreateProjectModal({
       setGenre('');
       setColor(COLOR_CHOICES[Math.floor(Math.random() * COLOR_CHOICES.length)]);
       setError('');
+      setImportBusy(false);
+      setDragOver(false);
+      setPreview(null);
+      setImportError('');
     }
   }, [open]);
 
@@ -347,12 +446,59 @@ function CreateProjectModal({
     onSubmit(name.trim(), description.trim(), genre.trim());
   };
 
+  /** 预览 zip 内容后执行导入；全程保持忙碌态，失败时展示具体错误。 */
+  const importFromPath = async (zipPath: string) => {
+    if (importBusy) return;
+    setImportError('');
+    setPreview(null);
+    setImportBusy(true);
+    try {
+      const info = await api.inspectProjectZip(zipPath);
+      setPreview(info);
+      await onImport(zipPath);
+      onClose();
+    } catch (err) {
+      setImportError(errorMessage(err));
+      toast.error(errorMessage(err));
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const handleFile = (file: File | undefined) => {
+    if (!file || importBusy) return;
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      setImportError('请选择 .zip 压缩包');
+      toast.error('请选择 .zip 压缩包');
+      return;
+    }
+    const zipPath = (file as File & { path?: string }).path;
+    if (!zipPath) {
+      setImportError('无法读取文件位置，请使用「选择 zip 文件」按钮');
+      toast.error('无法读取文件位置，请使用「选择 zip 文件」按钮');
+      return;
+    }
+    void importFromPath(zipPath);
+  };
+
+  const chooseZip = async () => {
+    if (importBusy) return;
+    setImportError('');
+    try {
+      const chosen = await api.chooseProjectZip();
+      if (chosen.canceled || !chosen.filePath) return;
+      await importFromPath(chosen.filePath);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  };
+
   return (
     <Modal
       open={open}
       title="创建小说项目"
       subtitle="项目之间数据完全隔离，可随时重命名或删除。"
-      onClose={busy ? () => undefined : onClose}
+      onClose={busy || importBusy ? () => undefined : onClose}
       footer={
         <>
           <button className="btn" onClick={onClose} disabled={busy}>
@@ -428,6 +574,61 @@ function CreateProjectModal({
       </div>
       <div className="info-note" style={{ marginTop: 6 }}>
         创建后会自动生成「第一阶段」，可直接新建章节开始写作。
+      </div>
+
+      <div className="pt-import">
+        <div className="pt-import-head">
+          <Upload size={14} style={{ verticalAlign: -2, marginRight: 6, color: 'var(--accent)' }} />
+          已有项目？导入 ZIP 压缩包
+        </div>
+        <div
+          className={`pt-dropzone${dragOver ? ' dragging' : ''}${importBusy ? ' busy' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            if (!importBusy) setDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            void handleFile(e.dataTransfer.files[0]);
+          }}
+          onClick={() => {
+            if (!importBusy) void chooseZip();
+          }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && !importBusy) {
+              e.preventDefault();
+              void chooseZip();
+            }
+          }}
+        >
+          <FileArchive size={22} style={{ color: 'var(--accent)', flex: '0 0 auto' }} />
+          <div className="pt-dropzone-text">
+            <div className="pt-dropzone-title">把 .zip 压缩包拖到这里，或点击选择文件</div>
+            <div className="pt-dropzone-hint">导入后会创建新项目，并自动打开</div>
+          </div>
+          {importBusy ? <span className="spinner" /> : null}
+        </div>
+        {preview ? (
+          <div className="pt-preview">
+            <span className="pt-preview-title">压缩包内容</span>
+            <span>项目名：{preview.projectName}</span>
+            <span>章节数：{preview.chapters}</span>
+            <span>导出时间：{formatDateTime(preview.exportedAt)}</span>
+          </div>
+        ) : null}
+        {importError ? <div className="pt-import-error">{importError}</div> : null}
+        <button className="btn btn-sm pt-import-pick" onClick={() => void chooseZip()} disabled={importBusy}>
+          {importBusy ? <span className="spinner" /> : <FileArchive size={13} />}
+          选择 zip 文件
+        </button>
       </div>
     </Modal>
   );

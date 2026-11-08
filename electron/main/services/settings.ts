@@ -25,7 +25,16 @@ const DEFAULT_UI: UiSettings = {
   closeAction: 'tray',
   rememberReading: true,
   reading: { ...DEFAULT_READING_SETTINGS },
+  // 未设置时导出项目会弹系统保存对话框
+  exportFolder: null,
 };
+
+/** 默认导出文件夹：只接受非空字符串，且去掉首尾空白；非法值按 null 处理。 */
+function normalizeExportFolder(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
 
 /** 把数值夹在合法区间；非法输入回退到当前值，避免越界数据写库后 UI 与存储不一致。 */
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -90,6 +99,7 @@ export class SettingsService {
       closeAction: parsed.closeAction === 'quit' ? 'quit' : 'tray',
       rememberReading: parsed.rememberReading !== false,
       reading,
+      exportFolder: normalizeExportFolder(parsed.exportFolder),
     };
   }
 
@@ -107,6 +117,10 @@ export class SettingsService {
         patch.rememberReading === undefined
           ? current.rememberReading
           : Boolean(patch.rememberReading) && patch.rememberReading !== false,
+      exportFolder:
+        patch.exportFolder === undefined
+          ? current.exportFolder
+          : normalizeExportFolder(patch.exportFolder),
     };
     this.setAppRaw('ui', toJson(next));
     return next;

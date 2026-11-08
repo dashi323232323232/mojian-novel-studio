@@ -8,6 +8,7 @@ import { OutlineService } from './services/outline';
 import { ForeshadowService } from './services/foreshadow';
 import { AudioService } from './services/audio';
 import { BackupService } from './services/backup';
+import { ProjectTransferService } from './services/projectTransfer';
 import { APP_VERSION, API_VERSION } from '@shared/constants';
 import { NovelError } from './errors';
 
@@ -27,6 +28,8 @@ export class AppCore {
   readonly foreshadow: ForeshadowService;
   readonly audio: AudioService;
   readonly backup: BackupService;
+  /** 项目导入/导出（zip 打包，结构化 JSON，跨版本兼容） */
+  readonly transfer: ProjectTransferService;
   readonly startedAt = new Date().toISOString();
   private closed = false;
 
@@ -63,6 +66,8 @@ export class AppCore {
       },
       () => this.settings.getAudioConfig().sapiRate,
     );
+    // 依赖所有其它服务都已构造完毕
+    this.transfer = new ProjectTransferService(this);
     this.backup.startAutoBackup();
   }
 

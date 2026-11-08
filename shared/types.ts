@@ -352,6 +352,8 @@ export interface UiSettings {
   /** 是否记住上次朗读位置，默认开启 */
   rememberReading: boolean;
   reading: ReadingSettings;
+  /** 项目导出时默认保存的文件夹；null 表示每次弹系统保存对话框 */
+  exportFolder: string | null;
 }
 
 export interface ProjectUiSettings {

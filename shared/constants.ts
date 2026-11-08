@@ -6,7 +6,7 @@ import type {
   ReadingSettings,
 } from './types';
 
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.6.0';
 export const API_VERSION = 'v1';
 export const API_PREFIX = '/api/v1';
 export const DEFAULT_API_PORT = 45871;

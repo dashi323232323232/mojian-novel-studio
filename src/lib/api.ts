@@ -79,6 +79,22 @@ export const api = {
   exportText: (defaultName: string, content: string) =>
     unwrap(getApi().app.exportText({ defaultName, content })),
 
+  // 项目导入 / 导出
+  exportProject: (payload: { projectId: string; targetPath?: string }): Promise<{
+    canceled?: boolean;
+    filePath?: string;
+    projectName: string;
+    size: number;
+  }> => unwrap(getApi().projectTransfer.exportProject(payload)),
+  inspectProjectZip: (zipPath: string): Promise<{ projectName: string; chapters: number; exportedAt: string; version: number }> =>
+    unwrap(getApi().projectTransfer.inspect(zipPath)),
+  importProjectZip: (zipPath: string): Promise<{ projectId: string; projectName: string; chapters: number; stages: number }> =>
+    unwrap(getApi().projectTransfer.importProject(zipPath)),
+  chooseProjectZip: (): Promise<{ canceled: boolean; filePath?: string }> =>
+    unwrap(getApi().projectTransfer.chooseZip()),
+  chooseExportFolder: (): Promise<{ canceled: boolean; dir?: string }> =>
+    unwrap(getApi().projectTransfer.chooseDefaultFolder()),
+
   listProjects: () => unwrap(getApi().projects.list()),
   createProject: (input: { name: string; description?: string; genre?: string }) =>
     unwrap(getApi().projects.create(input)),

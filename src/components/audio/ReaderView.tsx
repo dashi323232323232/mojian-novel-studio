@@ -16,6 +16,7 @@ import type { Chapter, ProjectStructure, ReadingProgress, ReadingSettings } from
 import { READING_RATE_OPTIONS } from '@shared/constants';
 import {
   SpeechReader,
+  SPEAK_RESTART_DELAY_MS,
   findSegmentIndex,
   formatClock,
   isSpeechSupported,
@@ -118,6 +119,8 @@ export function ReaderView({
   const lastSaveAt = useRef<number>(0);
   /** 供朗读器回调读取的最新 props 快照（避免闭包拿到首次渲染的旧值）。 */
   const latestRef = useRef({ chapters, autoNext: settings.autoNext });
+  /** 上一章自然读完、需要自动接着朗读下一章时为 true */
+  const autoContinueRef = useRef(false);
   const [offset, setOffset] = useState(0);
   const [windowHeight, setWindowHeight] = useState(0);
 
@@ -213,6 +216,9 @@ export function ReaderView({
         const idx = latest.findIndex((c) => c.id === current);
         const next = idx >= 0 ? latest[idx + 1] : null;
         if (autoNext && next) {
+          // 标记「自动续读」：下一章正文加载完成后要接着 play()，
+          // 否则 load() 会把状态重置为 idle，用户看到的是下一章只载入不发声。
+          autoContinueRef.current = true;
           toast.info(`本章读完，继续朗读《${next.name}》`);
           setChapterId(next.id);
         }
@@ -263,8 +269,21 @@ export function ReaderView({
         const saved = rememberReading ? progressMap[chapterId] : undefined;
         const startChar = saved && saved.charIndex > 0 && saved.charIndex < text.length ? saved.charIndex : 0;
         lastSaved.current = startChar;
-        readerRef.current?.load(text, startChar);
-        setResumeHint(startChar > 0 ? startChar : null);
+        const reader = readerRef.current;
+        // 只有「上一章自然读完、自动切到下一章」时才自动继续播放。
+        // 不能拿「进度为 0」来推断：首次打开一个没有进度的章节也是 0，
+        // 那样会导致每次进入音频页都自动朗读，并与用户手动点击播放产生竞态。
+        const shouldAutoContinue = autoContinueRef.current;
+        autoContinueRef.current = false;
+        const resumeAt = shouldAutoContinue ? 0 : startChar;
+        reader?.load(text, resumeAt);
+        if (shouldAutoContinue) {
+          // 延后一拍，让 load() 内部的 cancel 与 React 状态提交先完成，再启动播放
+          window.setTimeout(() => {
+            if (alive) readerRef.current?.play();
+          }, SPEAK_RESTART_DELAY_MS + 40);
+        }
+        setResumeHint(!shouldAutoContinue && startChar > 0 ? startChar : null);
       })
       .catch((err) => {
         if (!alive) return;

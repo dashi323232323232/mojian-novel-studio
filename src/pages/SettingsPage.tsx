@@ -19,6 +19,8 @@ import {
   Gauge,
   Volume2,
   Minimize2,
+  FileArchive,
+  X,
 } from 'lucide-react';
 import type { AppInfo, BackupInfo, ReadingSettings, UiSettings } from '@shared/types';
 import { CLOSE_ACTION_LABEL, READING_RATE_OPTIONS } from '@shared/constants';
@@ -27,6 +29,7 @@ import { loadVoices, sortVoices, type ReaderVoice } from '../lib/reading';
 import { api } from '../lib/api';
 import { toast } from '../lib/toast';
 import { ConfirmDialog } from '../components/Modal';
+import '../styles/project-transfer.css';
 
 export function SettingsPage() {
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -47,6 +50,7 @@ export function SettingsPage() {
     backupCount: number;
   } | null>(null);
   const [movingDir, setMovingDir] = useState(false);
+  const [exportBusy, setExportBusy] = useState(false);
   const [voices, setVoices] = useState<ReaderVoice[]>([]);
   const [windowState, setWindowState] = useState<{ trayActive: boolean; closeAction: 'tray' | 'quit' } | null>(null);
 
@@ -152,6 +156,36 @@ export function SettingsPage() {
       toast.error(err instanceof Error ? err.message : '删除备份失败');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const chooseExportFolder = async () => {
+    if (exportBusy) return;
+    setExportBusy(true);
+    try {
+      const chosen = await api.chooseExportFolder();
+      if (chosen.canceled || !chosen.dir) return;
+      const saved = await api.updateSettings({ exportFolder: chosen.dir });
+      setSettings(saved);
+      toast.success(`默认导出文件夹已设置为 ${chosen.dir}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '选择导出文件夹失败');
+    } finally {
+      setExportBusy(false);
+    }
+  };
+
+  const clearExportFolder = async () => {
+    if (exportBusy) return;
+    setExportBusy(true);
+    try {
+      const saved = await api.updateSettings({ exportFolder: null });
+      setSettings(saved);
+      toast.success('已清除默认导出文件夹');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '清除导出文件夹失败');
+    } finally {
+      setExportBusy(false);
     }
   };
 
@@ -538,6 +572,52 @@ export function SettingsPage() {
                 <b>迁移模式</b>会把当前数据库、全部音频与备份复制到新目录，校验成功后切换并自动重启软件；
                 <b>仅切换模式</b>不会复制数据，适合目录中已有旧数据的情况。目标目录不能已存在 dashi.db。
                 引导文件位于 <code>{dataLoc?.bootstrapFile ?? '—'}</code>，删除它即可恢复默认位置。
+              </div>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            <div className="settings-card-head">
+              <span>
+                <FileArchive size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                项目导入导出
+              </span>
+              <span
+                className="badge"
+                style={{
+                  background: settings?.exportFolder ? 'var(--accent-soft)' : 'var(--bg-subtle)',
+                  color: settings?.exportFolder ? 'var(--accent)' : 'var(--text-tertiary)',
+                }}
+              >
+                {settings?.exportFolder ? '已设置' : '未设置'}
+              </span>
+            </div>
+            <div className="settings-card-body">
+              <div className="kv-row">
+                <span className="k">默认导出文件夹</span>
+                <span
+                  className="v pt-folder-path"
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}
+                  title={settings?.exportFolder ?? ''}
+                >
+                  {settings?.exportFolder ?? '未设置（导出时会询问保存位置）'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button className="btn btn-sm btn-primary" onClick={() => void chooseExportFolder()} disabled={exportBusy}>
+                  {exportBusy ? <span className="spinner" /> : <FolderOpen size={13} />}
+                  选择文件夹
+                </button>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => void clearExportFolder()}
+                  disabled={exportBusy || !settings?.exportFolder}
+                >
+                  <X size={13} /> 清除
+                </button>
+              </div>
+              <div className="info-note" style={{ marginTop: 12, marginBottom: 0 }}>
+                设置后导出项目会直接保存到该文件夹，不再每次询问；未设置时由系统弹出保存对话框选择位置。
               </div>
             </div>
           </div>
