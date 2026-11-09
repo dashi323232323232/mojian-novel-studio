@@ -40,6 +40,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.1.0",
     "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
     "playwright-core": "^1.56.0",
     "tsc-alias": "^1.9.9",
     "tsx": "^4.20.6",

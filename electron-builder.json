@@ -1,0 +1,49 @@
+{
+  "appId": "com.dashi.novelstudio",
+  "productName": "大师小说工作台",
+  "copyright": "Copyright © 2026 Dashi Studio",
+  "directories": {
+    "output": "dist-installer",
+    "buildResources": "assets"
+  },
+  "files": [
+    "dist/electron/**/*",
+    "dist/renderer/**/*",
+    "package.json"
+  ],
+  "extraResources": [],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "assets/icon.ico",
+    "artifactName": "大师小说工作台-${version}-安装程序.${ext}",
+    "legalTrademarks": "大师小说工作台"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "大师小说工作台",
+    "installerIcon": "assets/icon.ico",
+    "uninstallerIcon": "assets/icon.ico",
+    "installerHeaderIcon": "assets/icon.ico",
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true,
+    "language": "2052",
+    "installerLanguages": [
+      "zh_CN"
+    ]
+  },
+  "asar": true,
+  "asarUnpack": [],
+  "publish": null
+}

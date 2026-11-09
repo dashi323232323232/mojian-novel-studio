@@ -17,9 +17,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 const version = String(pkg.version || '0.0.0');
 const tag = 'v' + version;
 
-const APP_DIR = path.join(root, 'dist-packaged', 'DashiNovelStudio-win32-x64');
 const EXE_NAME = '大师小说工作台.exe';
-const EXE_PATH = path.join(APP_DIR, EXE_NAME);
 const LOCAL_DIR = 'H:/软件安装包';
 const REPO = 'dashi323232323232/mojian-novel-studio';
 const API_BASE = 'https://api.github.com';
@@ -37,223 +35,73 @@ function fail(stage, msg) { console.error('[安装包] ' + stage + '：' + msg);
 // 0. 前置校验
 // ---------------------------------------------------------------------------
 log('版本 ' + version + '，Release 标签 ' + tag);
-if (!fs.existsSync(EXE_PATH)) {
-  fail('打包失败', '未找到 ' + EXE_PATH + '，请先运行 npm run package');
+if (!fs.existsSync(path.join(root, 'dist/renderer/index.html'))) {
+  fail('打包失败', '未找到 dist/renderer/index.html，请先运行 npm run build');
   process.exit(1);
 }
-log('已找到可执行程序：' + EXE_PATH);
-
-// os.tmpdir() 依赖 TEMP/TMP 环境变量；极端环境下可能不可用，退回项目内临时目录。
-function tempBase() {
-  const base = os.tmpdir();
-  try { fs.mkdirSync(base, { recursive: true }); return base; } catch { /* 下面兜底 */ }
-  const fallback = path.join(root, '.cache', 'installer-tmp');
-  fs.mkdirSync(fallback, { recursive: true });
-  return fallback;
+// 用 electron-builder 产出真正的 Windows 安装程序（NSIS），而不是便携版 zip：
+// 双击后走标准安装向导，可选安装目录、创建桌面与开始菜单快捷方式、可从「应用和功能」卸载。
+const BUILDER_CONFIG = path.join(root, 'electron-builder.json');
+const OUT_DIR = path.join(root, 'dist-installer');
+if (!fs.existsSync(BUILDER_CONFIG)) {
+  fail('打包失败', '未找到 electron-builder.json');
+  process.exit(1);
 }
-const workDir = fs.mkdtempSync(path.join(tempBase(), 'dashi-installer-'));
-log('临时工作目录：' + workDir);
 
-// ---------------------------------------------------------------------------
-// 1. 最小 zip 容器编码（零外部依赖，仅用 node:zlib）
-//    保留 dist-packaged/DashiNovelStudio-win32-x64/ 的完整目录结构：
-//    解压后得到同名目录，直接运行里面的 exe 即可，属于便携安装包。
-//    每个文件逐个尝试 deflate（method 8），压不动就 store（method 0）。
-// ---------------------------------------------------------------------------
-const CRC_TABLE = (() => {
-  const t = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-    t[n] = c | 0;
+/**
+ * 调用 electron-builder 生成 NSIS 安装程序。
+ * 返回 { file, name, fmt }。任何失败都抛错，由外层捕获。
+ */
+function buildNsisInstaller() {
+  log('开始构建 Windows 安装程序（NSIS）…');
+  // 清掉上一次的产物，避免旧版本文件被误当成本次结果
+  try { fs.rmSync(OUT_DIR, { recursive: true, force: true }); } catch { /* 目录被占用时跳过，后面按文件名匹配 */ }
+  // Windows 上直接用 npx.cmd 调起子进程会被 EINVAL 拒绝（Node 的 spawn 安全限制），
+  // 这里改走 electron-builder 的 JS 入口，跨平台且不依赖 shell。
+  const builderEntry = path.join(root, 'node_modules', 'electron-builder', 'out', 'cli', 'cli.js');
+  if (!fs.existsSync(builderEntry)) {
+    throw new Error('未找到 electron-builder，请先运行 npm install');
   }
-  return t;
-})();
-
-function crc32Buf(buf) {
-  let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  return ((c ^ 0xffffffff) >>> 0);
-}
-
-function dosDateTime(mtimeMs) {
-  const d = new Date(mtimeMs);
-  const time = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xffff;
-  const date = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xffff;
-  return { time, date };
-}
-
-function listFilesRecursive(dir, base, out) {
-  for (const name of fs.readdirSync(dir)) {
-    const full = path.join(dir, name);
-    const st = fs.statSync(full);
-    const arc = base ? base + '/' + name : name;
-    if (st.isDirectory()) listFilesRecursive(full, arc, out);
-    else out.push({ full, arc, mode: st.mode, mtimeMs: st.mtimeMs });
-  }
-}
-
-function createZip(srcDir, outFile) {
-  const entries = [];
-  // 顶层包一层目录名：解压后得到独立的 DashiNovelStudio-win32-x64 文件夹，
-  // 不会把 exe、resources 等散落到用户目录里。
-  const topDir = path.basename(srcDir);
-  listFilesRecursive(srcDir, topDir, entries);
-  const parts = [];
-  const centralParts = [];
-  let offset = 0;
-  let count = 0;
-  for (const e of entries) {
-    const nameBuf = Buffer.from(e.arc, 'utf8');
-    const raw = fs.readFileSync(e.full);
-    const def = zlib.deflateRawSync(raw, { level: 6 });
-    const useDeflate = def.length < raw.length;
-    const data = useDeflate ? def : raw;
-    const method = useDeflate ? 8 : 0;
-    const { time, date } = dosDateTime(e.mtimeMs);
-    const crc = crc32Buf(raw);
-
-    const local = Buffer.alloc(30);
-    local.writeUInt32LE(0x04034b50, 0);
-    local.writeUInt16LE(20, 4);
-    local.writeUInt16LE(0x0800, 6);   // UTF-8 文件名标志，保证中文名可解压
-    local.writeUInt16LE(method, 8);
-    local.writeUInt16LE(time, 10);
-    local.writeUInt16LE(date, 12);
-    local.writeUInt32LE(crc, 14);
-    local.writeUInt32LE(data.length, 18);   // 压缩后大小
-    local.writeUInt32LE(raw.length, 22);    // 原始大小
-    local.writeUInt16LE(nameBuf.length, 26);
-    local.writeUInt16LE(0, 28);
-    parts.push(local, nameBuf, data);
-
-    const cd = Buffer.alloc(46);
-    cd.writeUInt32LE(0x02014b50, 0);
-    cd.writeUInt16LE(0x0314, 4);       // made by: UNIX / zip 2.0
-    cd.writeUInt16LE(20, 6);
-    cd.writeUInt16LE(0x0800, 8);
-    cd.writeUInt16LE(method, 10);
-    cd.writeUInt16LE(time, 12);
-    cd.writeUInt16LE(date, 14);
-    cd.writeUInt32LE(crc, 16);
-    cd.writeUInt32LE(data.length, 20);
-    cd.writeUInt32LE(raw.length, 24);
-    cd.writeUInt16LE(nameBuf.length, 28);
-    cd.writeUInt16LE(0, 30);           // extra len
-    cd.writeUInt16LE(0, 32);           // comment len
-    cd.writeUInt16LE(0, 34);           // disk start
-    cd.writeUInt16LE(0, 36);           // internal attrs
-    cd.writeUInt32LE(((e.mode & 0o777) || 0o644) << 16, 38);
-    cd.writeUInt32LE(offset, 42);
-    centralParts.push(cd, nameBuf);
-
-    offset += local.length + nameBuf.length + data.length;
-    count++;
-    if (count % 200 === 0) log('  已写入 ' + count + ' / ' + entries.length + ' 个文件…');
-  }
-  const centralBuf = Buffer.concat(centralParts);
-  const end = Buffer.alloc(22);
-  end.writeUInt32LE(0x06054b50, 0);
-  end.writeUInt16LE(0, 4);
-  end.writeUInt16LE(0, 6);
-  end.writeUInt16LE(count, 8);
-  end.writeUInt16LE(count, 10);
-  end.writeUInt32LE(centralBuf.length, 12);
-  end.writeUInt32LE(offset, 16);
-  end.writeUInt16LE(0, 20);
-  fs.writeFileSync(outFile, Buffer.concat([...parts, centralBuf, end]));
-  return { count, size: fs.statSync(outFile).size };
-}
-
-// ---------------------------------------------------------------------------
-// 2. 生成单个安装包：先试 iexpress，失败自动回退到 zip
-// ---------------------------------------------------------------------------
-function tryIExpress() {
-  const iexpress = 'C:/Windows/System32/iexpress.exe';
-  if (process.platform !== 'win32' || !fs.existsSync(iexpress)) {
-    warn('未找到 iexpress.exe（或非 Windows 环境），跳过自解压 exe，直接回退 zip 便携版');
-    return null;
-  }
-  const exeName = '大师小说工作台-' + version + '-win64-安装版.exe';
-  const sedPath = path.join(workDir, 'setup.sed');
-  const target = path.join(workDir, exeName);
-  const stageDir = path.join(workDir, 'stage');
   try {
-    fs.mkdirSync(stageDir, { recursive: true });
-    // 复制到纯 ASCII 的临时 stage，尽量规避中文路径 / 长文件名问题。
-    fs.cpSync(APP_DIR, stageDir, { recursive: true });
-    const lines = [
-      '[Version]',
-      'Class=IEXPRESS',
-      'SEDVersion=3',
-      '[Options]',
-      'PackagePurpose=InstallApp',
-      'ShowInstallProgramWindow=0',
-      'HideExtractAnimation=1',
-      'UseLongFileName=1',
-      'InsideCompressed=0',
-      'CAB_FixedSize=0',
-      'CAB_ResvCodeSigning=0',
-      'RebootMode=N',
-      'InstallPrompt=正在安装 大师小说工作台，请稍候',
-      'DisplayLicense=',
-      'FinishMessage=解压完成，请运行目录中的 大师小说工作台.exe',
-      'TargetName=' + target,
-      'FriendlyTitle=大师小说工作台 ' + version + ' 安装',
-      'AppLaunched=cmd.exe /c echo 安装完成',
-      'PostInstallCmd=<None>',
-      'AdminQuietInstCmd=',
-      'UserQuietInstCmd=',
-      'SourceFiles=SourceFiles',
-      '[Strings]',
-      'InstallPrompt=正在安装 大师小说工作台，请稍候',
-      'FinishMessage=解压完成，请运行目录中的 大师小说工作台.exe',
-      'FriendlyTitle=大师小说工作台 ' + version + ' 安装',
-      'AppLaunched=cmd.exe /c echo 安装完成',
-      '[SourceFiles]',
-      'SourceFiles0=' + stageDir,
-      '[SourceFiles0]',
-    ];
-    for (const f of fs.readdirSync(stageDir)) lines.push('%SourceFiles0%' + path.sep + f + '=');
-    fs.writeFileSync(sedPath, lines.join('\r\n') + '\r\n', 'utf8');
-    log('尝试方式 A：调用 iexpress.exe /N /Q 生成自解压 exe…');
-    execFileSync(iexpress, ['/N', '/Q', sedPath], { stdio: 'ignore', timeout: 5 * 60 * 1000 });
+    execFileSync(
+      process.execPath,
+      [builderEntry, '--win', 'nsis', '--x64', '--config', 'electron-builder.json'],
+      { cwd: root, stdio: 'inherit', timeout: 20 * 60 * 1000 },
+    );
   } catch (e) {
-    warn('iexpress 生成失败（大文件 / 长文件名 / 中文路径常见）：' + (e && e.message ? e.message : String(e)));
-    return null;
+    throw new Error('electron-builder 执行失败：' + (e && e.message ? e.message : String(e)));
   }
-  if (!fs.existsSync(target) || fs.statSync(target).size < 1024 * 1024) {
-    warn('iexpress 未产出有效 exe，回退到 zip 便携版');
-    return null;
+  // 产物名形如「大师小说工作台-1.6.1-安装程序.exe」
+  const candidates = fs.existsSync(OUT_DIR)
+    ? fs.readdirSync(OUT_DIR).filter((f) => f.toLowerCase().endsWith('.exe') && !f.includes('__uninstaller'))
+    : [];
+  if (!candidates.length) throw new Error('electron-builder 未产出 .exe 安装程序');
+  // 取体积最大的那个（安装程序 vs 可能的临时文件）
+  let hit = null;
+  let maxSize = 0;
+  for (const f of candidates) {
+    const full = path.join(OUT_DIR, f);
+    const size = fs.statSync(full).size;
+    if (size > maxSize) { maxSize = size; hit = full; }
   }
-  log('iexpress 成功，安装包：' + target);
-  return { file: target, name: exeName, fmt: '自解压 EXE（iexpress）' };
-}
-
-function buildZip() {
-  const name = '大师小说工作台-' + version + '-win64-便携版.zip';
-  const out = path.join(workDir, name);
-  log('方式 B：用内置 zip 编码把整个程序目录打成单个 zip（保留目录结构）…');
-  const info = createZip(APP_DIR, out);
-  log('zip 完成：' + info.count + ' 个文件，' + (info.size / 1024 / 1024).toFixed(1) + ' MB');
-  return { file: out, name, fmt: '便携版 ZIP' };
+  if (!hit || maxSize < 10 * 1024 * 1024) {
+    throw new Error('产出的安装程序体积异常（' + (maxSize / 1024 / 1024).toFixed(1) + ' MB）');
+  }
+  log('安装程序已生成：' + path.basename(hit) + '（' + (maxSize / 1024 / 1024).toFixed(1) + ' MB）');
+  return { file: hit, name: path.basename(hit), fmt: 'Windows 安装程序（NSIS，标准安装向导）' };
 }
 
 let artifact = null;
 try {
-  artifact = tryIExpress();
-  if (!artifact) {
-    log('自动回退到 zip 便携版（单个文件，解压后直接运行 exe）。');
-    artifact = buildZip();
-  }
+  artifact = buildNsisInstaller();
   if (!fs.existsSync(artifact.file) || fs.statSync(artifact.file).size === 0) {
-    throw new Error('生成的安装包为空');
+    throw new Error('生成的安装程序为空');
   }
 } catch (e) {
   fail('打包失败', (e && e.message ? e.message : String(e)));
   process.exit(1);
 }
-log('最终安装包：' + artifact.name + '（' + artifact.fmt + '，单个文件）');
+log('最终安装包：' + artifact.name + '（' + artifact.fmt + '）');
 
 // ---------------------------------------------------------------------------
 // 3. 复制到 H:\软件安装包，并只保留本软件最新一份
@@ -376,7 +224,7 @@ async function githubUpload(assetName, assetPath) {
   if (typeof fetch !== 'function') { warn('当前 Node 无原生 fetch，跳过上传'); return null; }
   // GitHub 的 asset 名走 URL query，中文在部分网络环境下会被破坏成乱码。
   // 本地 H 盘仍保留中文名，但上传时统一转成纯 ASCII 名，保证下载链接可用。
-  const uploadName = 'DashiNovelStudio-' + version + '-win64-portable' + path.extname(assetName);
+  const uploadName = 'DashiNovelStudio-' + version + '-win64-setup' + path.extname(assetName);
   assetName = uploadName;
   log('上传用文件名（ASCII）：' + uploadName);
   const token = readToken();
