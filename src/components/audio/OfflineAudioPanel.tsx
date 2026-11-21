@@ -23,10 +23,10 @@ import { Spinner } from '../ui';
 interface Props {
   projectId: string;
   structure: ProjectStructure;
-  provider: 'sapi' | 'openai';
+  provider: 'sapi' | 'openai' | 'cloned';
   /** 实时朗读使用的声音（系统语音名称），离线音频不覆盖它 */
   readerVoiceId: string;
-  onProviderChange: (provider: 'sapi' | 'openai') => void;
+  onProviderChange: (provider: 'sapi' | 'openai' | 'cloned') => void;
   onOpenConfig: () => void;
 }
 
@@ -87,7 +87,7 @@ export function OfflineAudioPanel({
       const active = list.find((p) => p.provider === provider);
       const fallback = list.find((p) => p.configured);
       if (!active?.configured && fallback && fallback.provider !== provider) {
-        onProviderChange(fallback.provider as 'sapi' | 'openai');
+        onProviderChange(fallback.provider as 'sapi' | 'openai' | 'cloned');
         setVoiceId(fallback.voices[0]?.id ?? '');
       } else if (active?.voices.length && !active.voices.some((v) => v.id === voiceId)) {
         // 优先选与实时朗读同一声音，保证两种模式听起来一致
@@ -277,7 +277,7 @@ export function OfflineAudioPanel({
                 className="select"
                 value={provider}
                 onChange={(e) => {
-                  const next = e.target.value as 'sapi' | 'openai';
+                  const next = e.target.value as 'sapi' | 'openai' | 'cloned';
                   onProviderChange(next);
                   const p = providers.find((x) => x.provider === next);
                   setVoiceId(p?.voices[0]?.id ?? '');
@@ -299,7 +299,9 @@ export function OfflineAudioPanel({
               <div className="warn-note" style={{ marginBottom: 0 }}>
                 {provider === 'sapi'
                   ? '未检测到 Windows 本地语音。请到系统「设置 → 时间和语言 → 语音」安装语音包，或切换到在线语音服务。'
-                  : '在线语音服务未配置。请点击「服务设置」填写 API 密钥、服务地址与模型。'}
+                  : provider === 'cloned'
+                    ? '未检测到本地克隆音色。请用软件外的「音色克隆训练工具」训练音色，并把音色包放到 %APPDATA%\大师小说工作台\voices\ 下，然后重启软件。'
+                    : '在线语音服务未配置。请点击「服务设置」填写 API 密钥、服务地址与模型。'}
                 {activeProvider?.error ? <div style={{ marginTop: 4 }}>错误：{activeProvider.error}</div> : null}
                 <div style={{ marginTop: 8 }}>
                   <button className="btn btn-sm" onClick={onOpenConfig}>

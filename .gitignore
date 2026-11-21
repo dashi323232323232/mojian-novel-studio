@@ -23,6 +23,9 @@ tests/e2e/last-*.json
 
 # 验证过程中的临时产物与截图
 proof_tmp/
+edge-debug-profile/
+*debug-profile/
+*outchecklogin.js
 
 # 用户个人草稿与工作文件（不属于软件源码）
 drafts/

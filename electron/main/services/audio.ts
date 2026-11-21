@@ -6,6 +6,7 @@ import { makeId, nowIso } from '../util';
 import { countWords } from '@shared/text';
 import type { AudioJob, AudioJobStatus, AudioJobWithFile, Voice } from '@shared/types';
 import { OpenAiTtsProvider, SapiTtsProvider, type TtsProvider } from '../adapters/tts';
+import { ClonedVoiceTtsProvider } from '../adapters/clonedVoice';
 
 interface AudioJobRow {
   id: string;
@@ -70,9 +71,28 @@ export class AudioService {
     private ctx: ServiceContext,
     private getOpenAiConfig: () => { baseUrl: string; apiKey: string; model: string; voice: string },
     private getSapiRate: () => number,
+    /**
+     * 本地克隆音色：数据目录下的 voices/ 集合，加上软件外训练工具提供的推理脚本与 Python。
+     * 由 AppCore 注入，便于在设置里改路径。
+     */
+    clonedVoiceEnv?: {
+      getVoicesDir: () => string;
+      getInferScript: () => string;
+      getPythonPath: () => string;
+    },
   ) {
     this.providers.set('sapi', new SapiTtsProvider());
     this.providers.set('openai', new OpenAiTtsProvider(getOpenAiConfig));
+    if (clonedVoiceEnv) {
+      this.providers.set(
+        'cloned',
+        new ClonedVoiceTtsProvider(
+          clonedVoiceEnv.getVoicesDir,
+          clonedVoiceEnv.getInferScript,
+          clonedVoiceEnv.getPythonPath,
+        ),
+      );
+    }
     this.recoverInterruptedJobs();
   }
 
@@ -134,7 +154,7 @@ export class AudioService {
   }
 
   async listVoices(providerId?: string): Promise<{ provider: string; label: string; configured: boolean; voices: Voice[]; error?: string }[]> {
-    const ids = providerId ? [providerId] : ['sapi', 'openai'];
+    const ids = providerId ? [providerId] : ['sapi', 'openai', 'cloned'];
     const out: { provider: string; label: string; configured: boolean; voices: Voice[]; error?: string }[] = [];
     for (const id of ids) {
       const provider = this.providers.get(id);

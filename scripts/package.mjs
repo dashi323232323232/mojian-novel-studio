@@ -95,6 +95,12 @@ const paths = await packager({
     /^\/README\.md$/,
     /^\/install\.log$/,
     /^\/tmp-/,
+    // 调试/临时目录不打包：里面的 Cookies 等文件可能被占用，导致 EBUSY
+    /^\/edge-.*-profile($|\/)/,
+    /^\/.*-debug-profile($|\/)/,
+    /^\/proof_tmp($|\/)/,
+    /^\/work($|\/)/,
+    /^\/drafts($|\/)/,
     // assets 不能排除：托盘图标与窗口图标都从这里读取
   ],
 });

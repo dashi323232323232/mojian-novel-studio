@@ -65,6 +65,13 @@ export class AppCore {
         };
       },
       () => this.settings.getAudioConfig().sapiRate,
+      // 本地克隆音色：音色包放在数据目录的 voices/ 下；
+      // 推理脚本与 Python 由软件外的训练工具提供，路径可在设置里改。
+      {
+        getVoicesDir: () => path.join(this.dataDir, 'voices'),
+        getInferScript: () => this.settings.getClonedVoiceSettings().inferScript,
+        getPythonPath: () => this.settings.getClonedVoiceSettings().pythonPath,
+      },
     );
     // 依赖所有其它服务都已构造完毕
     this.transfer = new ProjectTransferService(this);

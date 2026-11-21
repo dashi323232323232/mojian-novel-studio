@@ -216,7 +216,8 @@ export interface Voice {
 }
 
 export interface AudioProviderConfigPublic {
-  provider: 'none' | 'sapi' | 'openai';
+  /** cloned = 本地克隆音色（由软件外的训练工具产出） */
+  provider: 'none' | 'sapi' | 'openai' | 'cloned';
   openaiBaseUrl: string;
   openaiModel: string;
   openaiVoice: string;
@@ -317,8 +318,8 @@ export type CloseAction = 'tray' | 'quit';
 export interface ReadingSettings {
   /** 朗读引擎：web=系统实时语音；sapi=本地语音任务（生成文件后播放） */
   engine: 'web' | 'sapi';
-  /** 语音服务：web 引擎对应浏览器语音，sapi/openai 对应本地/在线语音任务 */
-  provider: 'sapi' | 'openai';
+  /** 语音服务：web 引擎对应浏览器语音，sapi/openai/cloned 对应本地/在线/克隆音色任务 */
+  provider: 'sapi' | 'openai' | 'cloned';
   /** 声音标识：web 引擎为语音名称，其他为音色 id */
   voiceId: string;
   /** 朗读语速倍率 0.5 ~ 2 */
@@ -476,7 +477,7 @@ export type ForeshadowPatch = Partial<ForeshadowInput>;
 export interface CreateAudioJobInput {
   chapterId: string;
   voiceId: string;
-  provider?: 'sapi' | 'openai';
+  provider?: 'sapi' | 'openai' | 'cloned';
   rate?: number;
   volume?: number;
 }

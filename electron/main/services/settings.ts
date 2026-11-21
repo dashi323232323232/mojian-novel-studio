@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { Database } from '../db/database';
 import { nowIso, parseJson, toJson } from '../util';
 import type {
@@ -28,6 +30,14 @@ const DEFAULT_UI: UiSettings = {
   // 未设置时导出项目会弹系统保存对话框
   exportFolder: null,
 };
+
+/** 本地克隆音色的运行环境配置（软件外训练工具提供）。 */
+export interface ClonedVoiceSettings {
+  /** 推理脚本路径（训练工具里的 scripts/infer_cli.py） */
+  inferScript: string;
+  /** 训练工具创建的虚拟环境里的 python.exe */
+  pythonPath: string;
+}
 
 /** 默认导出文件夹：只接受非空字符串，且去掉首尾空白；非法值按 null 处理。 */
 function normalizeExportFolder(value: unknown): string | null {
@@ -138,6 +148,59 @@ export class SettingsService {
   updateReadingSettings(patch: Partial<ReadingSettings>): ReadingSettings {
     const next = this.updateUi({ reading: { ...this.getUi().reading, ...patch } });
     return next.reading;
+  }
+
+  /**
+   * 本地克隆音色的推理路径。
+   * 默认指向软件外训练工具（与软件同级目录），可直接用，也允许用户在设置里改。
+   */
+  getClonedVoiceSettings(): ClonedVoiceSettings {
+    const raw = this.getAppRaw('audio.clonedVoice');
+    const parsed = parseJson<Partial<ClonedVoiceSettings>>(raw, {});
+    // 默认位置：与软件目录同级的「小说编辑器-tools/voice-clone」
+    const defaults = this.defaultClonedVoiceSettings();
+    return {
+      inferScript: parsed.inferScript || defaults.inferScript,
+      pythonPath: parsed.pythonPath || defaults.pythonPath,
+    };
+  }
+
+  /**
+   * 训练工具的默认位置。按优先级找：
+   *   1. 软件目录同级的「小说编辑器-tools/voice-clone」（cwd / 可执行文件所在目录）
+   *   2. 本机已知安装位置 E:\小说编辑器-tools\voice-clone
+   * Python 优先用工具的 .venv，没有则用系统 PATH 里的 python（本机 GPT-SoVITS 就跑在系统 Python 上）。
+   */
+  private defaultClonedVoiceSettings(): ClonedVoiceSettings {
+    const candidates = [
+      path.resolve(process.cwd(), '..', '小说编辑器-tools', 'voice-clone'),
+      path.resolve(process.cwd(), '小说编辑器-tools', 'voice-clone'),
+      'E:/小说编辑器-tools/voice-clone',
+    ];
+    let inferScript = '';
+    let pythonPath = '';
+    for (const toolDir of candidates) {
+      if (!toolDir) continue;
+      const script = path.join(toolDir, 'scripts', 'infer_cli.py');
+      if (!inferScript && fs.existsSync(script)) inferScript = script;
+      const venvPython = path.join(toolDir, '.venv', 'Scripts', 'python.exe');
+      if (!pythonPath && fs.existsSync(venvPython)) pythonPath = venvPython;
+    }
+    if (!pythonPath) {
+      // 用系统 python：主进程能执行即可，适配器通过 spawn 调用
+      pythonPath = 'python';
+    }
+    return { inferScript, pythonPath };
+  }
+
+  setClonedVoiceSettings(patch: Partial<ClonedVoiceSettings>): ClonedVoiceSettings {
+    const current = this.getClonedVoiceSettings();
+    const next: ClonedVoiceSettings = {
+      inferScript: typeof patch.inferScript === 'string' ? patch.inferScript.trim() : current.inferScript,
+      pythonPath: typeof patch.pythonPath === 'string' ? patch.pythonPath.trim() : current.pythonPath,
+    };
+    this.setAppRaw('audio.clonedVoice', toJson(next));
+    return next;
   }
 
   getEditorSettings(): EditorSettings {

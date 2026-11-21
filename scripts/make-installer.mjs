@@ -318,5 +318,5 @@ try {
 log('完成。本地安装包：' + localPath);
 log('产物格式：' + artifact.fmt + '（单个文件）');
 if (releasePage) log('GitHub Release：' + releasePage);
-log('提示：便携版 zip 解压后直接运行目录中的 ' + EXE_NAME + ' 即可。');
+log('提示：双击安装包按向导完成安装，然后从桌面或开始菜单启动。');
 
