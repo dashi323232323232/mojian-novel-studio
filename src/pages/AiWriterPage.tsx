@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Cpu, Play, Square, Save, FolderOpen, Wand2, RefreshCw, ScrollText } from 'lucide-react';
+import { Cpu, Play, Square, Save, FileText, Wand2, RefreshCw, ScrollText } from 'lucide-react';
 import type { ProjectStructure } from '@shared/types';
 import { api } from '../lib/api';
 import { toast } from '../lib/toast';
@@ -231,7 +231,24 @@ export function AiWriterPage({ projectId, structure }: Props) {
     try {
       const n = chapterNo(ctx) + 1;
       const r = await api.ai.saveDraft(projectId, '第' + String(n).padStart(3, '0') + '章', output);
-      toast.success('已保存：' + r.path);
+      toast.success('已保存到硬盘：' + r.path);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  };
+
+  // 直接写进项目章节树（内容页立刻能看到）
+  const saveAsChapter = async () => {
+    if (!output) return;
+    try {
+      const n = chapterNo(ctx) + 1;
+      const m = /### 第(\d+)章\s*(.+)/.exec(ctx.slice(ctx.indexOf('## 四、章节摘要')));
+      const title = m && Number(m[1]) === n ? m[2].trim() : '';
+      const name = '第' + n + '章' + (title ? ' ' + title : '');
+      const stage = structure.stages && structure.stages.length ? structure.stages[0].id : null;
+      const ch = await api.createChapter(projectId, { name, summary: '', stageId: stage });
+      await api.saveContent(ch.id, { content: output, source: 'ai-writer' });
+      toast.success('已写入项目：' + name);
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -323,7 +340,10 @@ export function AiWriterPage({ projectId, structure }: Props) {
               <Wand2 size={14} /> {busy ? '生成中…' : '生成正文'}
             </button>
             <button className="btn btn-ghost" disabled={!output} onClick={() => void saveDraft()}>
-              <Save size={14} /> 保存草稿
+              <Save size={14} /> 存到硬盘
+            </button>
+            <button className="btn btn-ghost" disabled={!output} onClick={() => void saveAsChapter()}>
+              <FileText size={14} /> 写入章节
             </button>
           </div>
           <textarea

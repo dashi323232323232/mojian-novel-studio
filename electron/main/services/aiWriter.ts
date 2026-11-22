@@ -23,9 +23,16 @@ function pushLog(s: string) {
   logBuf = (logBuf + s).slice(-8000);
 }
 
-export function findServerBinary(): string | null {
+export function findServerBinary(modelPath?: string): string | null {
   const candidates: string[] = [];
   if (process.env.AI_LLAMA_SERVER) candidates.push(process.env.AI_LLAMA_SERVER);
+  // 与模型同级的目录（把 gguf 和 llama.cpp 放一起最省事）
+  if (modelPath) {
+    const out = path.dirname(modelPath);
+    candidates.push(path.join(out, 'llamacpp-cuda', 'llama-server.exe'));
+    candidates.push(path.join(out, 'llamacpp', 'llama-server.exe'));
+    candidates.push(path.join(out, 'llama-server.exe'));
+  }
   const res = process.resourcesPath || '';
   if (res) {
     candidates.push(path.join(res, 'llama', 'llama-server.exe'));
@@ -72,8 +79,10 @@ async function waitHealthy(port: number, timeoutMs = 120000): Promise<boolean> {
 }
 
 export async function aiDeploy(input: AiDeployInput): Promise<AiDeployStatus> {
-  const binary = input.binary || findServerBinary();
-  if (!binary) throw new Error('没找到 llama-server.exe：请解压 llama.cpp 到 out/llamacpp-cuda/');
+  const binary = input.binary || findServerBinary(input.modelPath);
+  if (!binary) {
+    throw new Error('没找到 llama-server.exe：把它放到模型同目录的 llamacpp-cuda/ 下，或用环境变量 AI_LLAMA_SERVER 指定');
+  }
   const modelPath = input.modelPath;
   if (!modelPath || !fs.existsSync(modelPath)) throw new Error('模型文件不存在：' + (modelPath || '(未选择)'));
   if (proc) aiStop();
