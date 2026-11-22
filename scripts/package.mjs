@@ -101,6 +101,12 @@ const paths = await packager({
     /^\/proof_tmp($|\/)/,
     /^\/work($|\/)/,
     /^\/drafts($|\/)/,
+    // 训练产物与数据目录不打包（GGUF 动辄数 GB，asar 单文件上限 4.2GB）
+    /^\/out($|\/)/,
+    /^\/models($|\/)/,
+    /^\/novel-model-data($|\/)/,
+    /^\/writer\.py$/,
+    /^\/火影同人测试($|\/)/,
     // assets 不能排除：托盘图标与窗口图标都从这里读取
   ],
 });
