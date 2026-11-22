@@ -26,6 +26,39 @@ function sectionOf(ctx: string, name: string): string {
   return out.join('\n').trim();
 }
 
+function trimToSentence(text: string): string {
+  if (!text) return text;
+  const marks = ['。', '！', '？', '…', '”', '）'];
+  if (marks.includes(text[text.length - 1])) return text;
+  let cut = -1;
+  for (const m of marks) cut = Math.max(cut, text.lastIndexOf(m));
+  return cut > text.length * 0.6 ? text.slice(0, cut + 1) : text;
+}
+
+function insertSection(ctx: string, heading: string, block: string): string {
+  const i = ctx.indexOf(heading);
+  if (i < 0) return ctx.trimEnd() + '\n\n' + block;
+  const j = ctx.indexOf('\n## ', i + 1);
+  if (j < 0) return ctx.trimEnd() + '\n' + block;
+  const body = ctx.slice(i + heading.length, j).replace(/\s+$/, '');
+  return ctx.slice(0, i + heading.length) + body + '\n\n' + block.replace(/\s+$/, '') + '\n' + ctx.slice(j);
+}
+
+function insertAfterTable(ctx: string, heading: string, rows: string): string {
+  const i = ctx.indexOf(heading);
+  if (i < 0) return ctx.trimEnd() + '\n' + rows;
+  const j = ctx.indexOf('\n## ', i + 1);
+  const end = j < 0 ? ctx.length : j;
+  const lines = ctx.slice(i, end).split('\n');
+  let last = -1;
+  lines.forEach((ln, k) => {
+    if (ln.trim().startsWith('|')) last = k;
+  });
+  if (last < 0) return ctx;
+  lines.splice(last + 1, 0, rows.trim());
+  return ctx.slice(0, i) + lines.join('\n') + ctx.slice(end);
+}
+
 function chapterNo(ctx: string): number {
   const m = /当前章节：(\d+)/.exec(ctx);
   return m ? Number(m[1]) : 0;
@@ -124,7 +157,9 @@ export function AiWriterPage({ projectId, structure }: Props) {
       '\n\n【时间线与当前进度】\n' + sectionOf(ctx, '时间线与当前进度') +
       '\n\n【文风约束】\n' + sectionOf(ctx, '文风约束') +
       '\n\n写作要求：只输出正文，不要章节标题、不要任何说明或总结。';
-    const user = '请写下一章，约 ' + words + ' 字。' + (hint ? '本章要点：' + hint : '');
+    const user =
+      '请写下一章，严格控制在 ' + Math.round(words * 0.85) + '–' + Math.round(words * 1.15) + ' 字之间（目标 ' + words +
+      ' 字），写完后自然收尾，不要仓促结束。' + (hint ? '本章要点：' + hint : '');
     return [
       { role: 'system' as const, content: sys },
       { role: 'user' as const, content: user },
@@ -139,8 +174,9 @@ export function AiWriterPage({ projectId, structure }: Props) {
     setBusy(true);
     setOutput('');
     try {
-      const r = await api.ai.chat(buildMessages(), { maxTokens: Math.min(8000, words * 2 + 400), temperature: 0.9 });
-      setOutput(r.content.trim());
+      const cap = Math.min(8000, Math.round(words / 1.45) + 60);
+      const r = await api.ai.chat(buildMessages(), { maxTokens: cap, temperature: 0.9 });
+      setOutput(trimToSentence(r.content.trim()));
       toast.success('正文已生成，' + r.tokens + ' tokens');
       void extractAndUpdate(r.content.trim());
     } catch (err) {
@@ -171,13 +207,12 @@ export function AiWriterPage({ projectId, structure }: Props) {
       const m = s0 >= 0 && s1 > s0 ? JSON.parse(js.slice(s0, s1 + 1)) : null;
       if (!m) return;
       const holes: string[] = m.new_holes || [];
-      let next = ctx.trimEnd() + '\n\n### 第' + n + '章 ' + (m.title || '') + '\n- 一句话概要：' + (m.summary || '') +
+      const entry = '### 第' + n + '章 ' + (m.title || '') + '\n- 一句话概要：' + (m.summary || '') +
         '\n- 关键事件：' + (m.events || '') + '\n- 出场人物：' + (m.chars || '') + '\n- 新增伏笔：' + (holes.join('；') || '无') + '\n';
+      let next = insertSection(ctx, '## 四、章节摘要', entry);
       if (holes.length) {
-        const anchor = next.indexOf('## 四、章节摘要');
-        const tblEnd = next.lastIndexOf('\n', anchor);
         const rows = holes.map((h, i) => '| F' + n + '-' + (i + 1) + ' | 第' + n + '章 | ' + h + ' | 待定 |').join('\n');
-        if (tblEnd > 0) next = next.slice(0, tblEnd + 1) + rows + '\n' + next.slice(tblEnd + 1);
+        next = insertAfterTable(next, '## 三、未回收伏笔', rows);
       }
       next = next.replace(/- 当前章节：\d+/, '- 当前章节：' + n);
       if (m.time) next = next.replace(/- 故事内时间：.*/, '- 故事内时间：' + m.time);
