@@ -1,5 +1,7 @@
 import { getApi, unwrap } from './bridge';
 import type {
+  AiChatMessage,
+  AiDeployInput,
   AudioJobWithFile,
   AudioProviderConfigPublic,
   BackupInfo,
@@ -35,6 +37,18 @@ import type {
 export const api = {
   info: () => unwrap(getApi().app.info()),
   stats: () => unwrap(getApi().app.stats()),
+
+  ai: {
+    status: () => unwrap(getApi().ai.status()),
+    deploy: (input: AiDeployInput) => unwrap(getApi().ai.deploy(input)),
+    stop: () => unwrap(getApi().ai.stop()),
+    chat: (messages: AiChatMessage[], opts?: { maxTokens?: number; temperature?: number; topP?: number }) =>
+      unwrap(getApi().ai.chat(messages, opts)),
+    contextRead: (projectId: string, projectName?: string) => unwrap(getApi().ai.contextRead(projectId, projectName)),
+    contextWrite: (projectId: string, text: string) => unwrap(getApi().ai.contextWrite(projectId, text)),
+    saveDraft: (projectId: string, name: string, text: string) => unwrap(getApi().ai.saveDraft(projectId, name, text)),
+    chooseModel: () => unwrap(getApi().ai.chooseModel()),
+  },
   openDataDir: () => unwrap(getApi().app.openDataDir()),
   openPath: (path: string) => unwrap(getApi().app.openPath(path)),
   showItemInFolder: (path: string) => unwrap(getApi().app.showItemInFolder(path)),

@@ -10,7 +10,8 @@ import { buildOpenApiSpec } from './api/openapi';
 import { errorPayload, NovelError } from './errors';
 import { describeDataLocation, migrateDataDir, resetDataDir, switchDataDir } from './dataLocation';
 import type { InstanceAuthService } from './services/instanceAuth';
-import type { InstanceSummary, ProjectUiSettings, ReadingProgress, UiSettings } from '@shared/types';
+import type { AiChatMessage, AiDeployInput, InstanceSummary, ProjectUiSettings, ReadingProgress, UiSettings } from '@shared/types';
+import { aiChat, aiDeploy, aiReadContext, aiSaveDraft, aiStatus, aiStop, aiWriteContext } from './services/aiWriter';
 
 export interface IpcDeps {
   core: AppCore;
@@ -84,6 +85,39 @@ export function registerIpc(deps: IpcDeps): void {
     })),
   );
   ipcMain.handle('app:stats', wrap(() => core.stats()));
+
+  // ---------- AI 写作：本地模型 ----------
+  ipcMain.handle('ai:status', wrap(() => aiStatus()));
+  ipcMain.handle('ai:deploy', wrap((input: AiDeployInput) => aiDeploy(input ?? { modelPath: '' })));
+  ipcMain.handle('ai:stop', wrap(() => aiStop()));
+  ipcMain.handle(
+    'ai:chat',
+    wrap((messages: AiChatMessage[], opts?: { maxTokens?: number; temperature?: number; topP?: number }) =>
+      aiChat(messages, opts),
+    ),
+  );
+  ipcMain.handle(
+    'ai:contextRead',
+    wrap((projectId: string, projectName?: string) => aiReadContext(projectId, projectName)),
+  );
+  ipcMain.handle('ai:contextWrite', wrap((projectId: string, text: string) => aiWriteContext(projectId, text)));
+  ipcMain.handle(
+    'ai:saveDraft',
+    wrap((projectId: string, name: string, text: string) => aiSaveDraft(projectId, name, text)),
+  );
+  ipcMain.handle(
+    'ai:chooseModel',
+    wrap(async () => {
+      const win = deps.getWindow();
+      const options = {
+        title: '选择 GGUF 模型',
+        filters: [{ name: 'GGUF 模型', extensions: ['gguf'] }],
+        properties: ['openFile' as const],
+      };
+      const r = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+      return { path: r.canceled ? null : r.filePaths[0] ?? null };
+    }),
+  );
   ipcMain.handle(
     'app:openDataDir',
     wrap(async () => {

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Project } from '@shared/types';
 import { api } from '../lib/api';
 
-export type ViewKind = 'welcome' | 'content' | 'editor' | 'outline' | 'link' | 'audio' | 'foreshadow' | 'agent' | 'settings';
+export type ViewKind = 'welcome' | 'content' | 'editor' | 'outline' | 'link' | 'audio' | 'aiwriter' | 'foreshadow' | 'agent' | 'settings';
 
 export interface NavState {
   view: ViewKind;

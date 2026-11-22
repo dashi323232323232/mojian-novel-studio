@@ -17,6 +17,7 @@ import { ContentPage } from './pages/ContentPage';
 import { EditorPage } from './pages/EditorPage';
 import { OutlinePage } from './pages/OutlinePage';
 import { AudioPage } from './pages/AudioPage';
+import { AiWriterPage } from './pages/AiWriterPage';
 import { AgentPage } from './pages/AgentPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { Spinner } from './components/ui';
@@ -262,6 +263,8 @@ export default function App() {
     );
   } else if (active.view === 'audio') {
     content = <AudioPage projectId={project.id} structure={structure} />;
+  } else if (active.view === 'aiwriter') {
+    content = <AiWriterPage projectId={project.id} structure={structure} />;
   } else {
     content = (
       <ContentPage

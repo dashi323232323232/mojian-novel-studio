@@ -122,7 +122,7 @@ export function Sidebar() {
     }
   };
 
-  const openProject = async (id: string, view: 'content' | 'outline' | 'audio') => {
+  const openProject = async (id: string, view: 'content' | 'outline' | 'audio' | 'aiwriter') => {
     const canLeave = await confirmLeave();
     if (!canLeave) return;
     try {
@@ -261,6 +261,13 @@ export function Sidebar() {
                     >
                       <AudioLines size={15} />
                       音频制作
+                    </button>
+                    <button
+                      className={'nav-child' + (isActive && active.view === 'aiwriter' ? ' active' : '')}
+                      onClick={() => void openProject(project.id, 'aiwriter')}
+                    >
+                      <Sparkles size={15} />
+                      AI 写作
                     </button>
                   </div>
                 ) : null}

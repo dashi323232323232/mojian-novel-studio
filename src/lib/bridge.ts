@@ -1,4 +1,7 @@
 import type {
+  AiChatMessage,
+  AiDeployInput,
+  AiDeployStatus,
   ApiServerStatus,
   ApiTestResult,
   AppInfo,
@@ -47,6 +50,19 @@ export interface ApiError {
 export type Result<T> = { ok: true; data: T } | { ok: false; error: ApiError };
 
 interface RawApi {
+  ai: {
+    status(): Promise<Result<AiDeployStatus>>;
+    deploy(input: AiDeployInput): Promise<Result<AiDeployStatus>>;
+    stop(): Promise<Result<AiDeployStatus>>;
+    chat(
+      messages: AiChatMessage[],
+      opts?: { maxTokens?: number; temperature?: number; topP?: number },
+    ): Promise<Result<{ content: string; tokens: number }>>;
+    contextRead(projectId: string, projectName?: string): Promise<Result<{ path: string; text: string; exists: boolean }>>;
+    contextWrite(projectId: string, text: string): Promise<Result<{ path: string }>>;
+    saveDraft(projectId: string, name: string, text: string): Promise<Result<{ path: string }>>;
+    chooseModel(): Promise<Result<{ path: string | null }>>;
+  };
   app: {
     info(): Promise<Result<AppInfo>>;
     stats(): Promise<Result<Record<string, number | string | null>>>;

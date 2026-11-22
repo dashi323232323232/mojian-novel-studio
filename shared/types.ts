@@ -512,3 +512,27 @@ export interface SearchHit {
   stageName: string | null;
   snippet: string;
 }
+
+/** AI 写作：本地 llama-server 的部署状态 */
+export interface AiDeployStatus {
+  running: boolean;
+  port: number;
+  modelPath: string | null;
+  pid: number | null;
+  startedAt: number | null;
+  binary: string | null;
+  log?: string;
+}
+
+export interface AiDeployInput {
+  modelPath?: string;
+  port?: number;
+  ctxSize?: number;
+  gpuLayers?: number;
+  binary?: string;
+}
+
+export interface AiChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}

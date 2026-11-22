@@ -157,6 +157,16 @@ const api = {
     chooseZip: () => ipcRenderer.invoke('projectTransfer:chooseZip'),
     chooseExportFolder: () => ipcRenderer.invoke('projectTransfer:chooseExportFolder'),
   },
+  ai: {
+    status: () => ipcRenderer.invoke('ai:status'),
+    deploy: (input: unknown) => ipcRenderer.invoke('ai:deploy', input),
+    stop: () => ipcRenderer.invoke('ai:stop'),
+    chat: (messages: unknown, opts?: unknown) => ipcRenderer.invoke('ai:chat', messages, opts),
+    contextRead: (projectId: string, projectName?: string) => ipcRenderer.invoke('ai:contextRead', projectId, projectName),
+    contextWrite: (projectId: string, text: string) => ipcRenderer.invoke('ai:contextWrite', projectId, text),
+    saveDraft: (projectId: string, name: string, text: string) => ipcRenderer.invoke('ai:saveDraft', projectId, name, text),
+    chooseModel: () => ipcRenderer.invoke('ai:chooseModel'),
+  },
   events: {
     onDataChanged: (cb: (event: unknown) => void) => {
       const listener = (_: unknown, event: unknown) => cb(event);
