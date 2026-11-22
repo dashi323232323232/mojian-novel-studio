@@ -82,7 +82,7 @@ export async function aiDeploy(input: AiDeployInput): Promise<AiDeployStatus> {
   const ngl = input.gpuLayers === undefined ? 99 : input.gpuLayers;
   const threads = Math.max(4, Math.min(16, os.cpus().length - 2));
   const args = ['-m', modelPath, '--host', '127.0.0.1', '--port', String(port),
-    '-c', String(ctxSize), '-ngl', String(ngl), '-fa', '--jinja', '-t', String(threads)];
+    '-c', String(ctxSize), '-ngl', String(ngl), '-fa', 'on', '--jinja', '-t', String(threads)];
   pushLog('[deploy] ' + binary + ' ' + args.join(' ') + '\n');
   proc = spawn(binary, args, { cwd: path.dirname(binary), windowsHide: true });
   proc.stdout?.on('data', (d) => pushLog(String(d)));
