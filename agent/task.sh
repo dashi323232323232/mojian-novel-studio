@@ -1,5 +1,4 @@
 #!/bin/bash
-cc=""
 cd /mnt/workspace || exit 1
 {
   echo "=== $(date) ==="
@@ -8,11 +7,17 @@ cd /mnt/workspace || exit 1
   ls -la lora_out3/lora_last.pt 2>/dev/null | awk '{print $5, $6, $7, $8}'
 } > agent_status.txt 2>&1
 if [ -n "$TOKEN" ]; then
-  B64=$(base64 -w0 agent_status.txt)
-  curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-    -d "{\"message\":\"status\",\"content\":\"$B64\"}" \
-    "https://api.github.com/repos/dashi323232323232/mojian-novel-studio/contents/status/agent_status.b64" > /dev/null
-  echo "uploaded"
-else
-  echo "no token"
+  python3 - <<'PY'
+import base64, json, os, urllib.request
+tok = os.environ.get('TOKEN', '')
+data = open('/mnt/workspace/agent_status.txt', 'rb').read()
+body = json.dumps({'message': 'status', 'content': base64.b64encode(data).decode()}).encode()
+url = 'https://api.github.com/repos/dashi323232323232/mojian-novel-studio/contents/status/agent_status.b64'
+req = urllib.request.Request(url, data=body, method='PUT', headers={'Authorization': 'Bearer ' + tok, 'User-Agent': 'agent', 'Content-Type': 'application/json'})
+try:
+    urllib.request.urlopen(req, timeout=25)
+    print('uploaded')
+except Exception as e:
+    print('upload failed', str(e)[:120])
+PY
 fi
