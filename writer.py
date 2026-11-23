@@ -94,7 +94,9 @@ def section(ctx, name):
 
 def chat(messages, max_tokens=4000, temp=0.85):
     body = json.dumps({'model': MODEL, 'messages': messages, 'max_tokens': max_tokens,
-                       'temperature': temp, 'top_p': 0.9, 'stream': False}).encode()
+                       'temperature': temp, 'top_p': 0.9, 'top_k': 40,
+                       'repeat_penalty': 1.08, 'frequency_penalty': 0.15,
+                       'presence_penalty': 0.1, 'stream': False}).encode()
     req = urllib.request.Request(API.rstrip('/') + '/chat/completions', data=body,
                                  headers={'Content-Type': 'application/json',
                                           'Authorization': 'Bearer ' + KEY})

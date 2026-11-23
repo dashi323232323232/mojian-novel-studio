@@ -135,6 +135,11 @@ export async function aiChat(
     max_tokens: opts?.maxTokens ?? 4000,
     temperature: opts?.temperature ?? 0.85,
     top_p: opts?.topP ?? 0.9,
+    top_k: 40,
+    // 4B 模型在长段落里容易「复读」，必须给惩罚
+    repeat_penalty: 1.08,
+    frequency_penalty: 0.15,
+    presence_penalty: 0.1,
     stream: false,
   };
   const r = await fetch('http://127.0.0.1:' + state.port + '/v1/chat/completions', {
